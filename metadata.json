@@ -1,0 +1,6 @@
+{
+  "name": "Piscinas Bruzzone",
+  "description": "Aplicación para cotizaciones por WhatsApp, agendamiento de mantenimientos, catálogo de modelos y panel de administración para Piscinas Bruzzone.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
