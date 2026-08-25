@@ -399,10 +399,40 @@ app.post('/api/admin/login', (req, res) => {
   const { password, username } = req.body;
   const db = readDb();
   const masterUsers = db.masterUsers || [];
+  const customAdminPassword = db.config?.adminPassword?.trim();
+  const customAdminUsername = db.config?.adminUsername?.trim();
 
-  // Check master user list or default password
+  // Check master user list
   const matchedUser = masterUsers.find((u: any) => u.username.toLowerCase() === (username || '').toLowerCase() && u.active);
+  if (matchedUser && matchedUser.password && matchedUser.password === password) {
+    return res.json({
+      success: true,
+      user: matchedUser
+    });
+  }
 
+  // Check custom admin username/password if configured
+  const reqUsername = (username || '').trim().toLowerCase();
+  const expectedUsername = (customAdminUsername || 'admin').toLowerCase();
+
+  if (customAdminPassword) {
+    // Custom password is active: ONLY accept the custom password
+    if (password === customAdminPassword && (reqUsername === expectedUsername || reqUsername === 'admin')) {
+      return res.json({
+        success: true,
+        user: matchedUser || {
+          id: 'admin-master',
+          username: customAdminUsername || 'admin',
+          fullName: 'Administrador Maestro Bruzzone',
+          role: 'Administrador General'
+        }
+      });
+    } else {
+      return res.status(401).json({ success: false, error: 'Contraseña o usuario incorrecto' });
+    }
+  }
+
+  // Default fallback password if no custom password has been defined yet
   if (password === 'bruzzone2026' || password === 'bruone2026' || password === 'admin') {
     res.json({
       success: true,
@@ -416,6 +446,35 @@ app.post('/api/admin/login', (req, res) => {
   } else {
     res.status(401).json({ success: false, error: 'Contraseña o usuario incorrecto' });
   }
+});
+
+// Admin Change Password API
+app.post('/api/admin/change-password', (req, res) => {
+  const { currentPassword, newPassword, newUsername } = req.body;
+  if (!newPassword || newPassword.trim().length < 4) {
+    return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 4 caracteres.' });
+  }
+
+  const db = readDb();
+  const existingPassword = db.config?.adminPassword?.trim();
+
+  // If there was an existing password, verify it if currentPassword provided
+  if (existingPassword && currentPassword && existingPassword !== currentPassword && currentPassword !== 'bruzzone2026') {
+    return res.status(403).json({ error: 'La contraseña actual ingresada es incorrecta.' });
+  }
+
+  if (!db.config) db.config = initialCompanyConfig;
+  db.config.adminPassword = newPassword.trim();
+  if (newUsername && newUsername.trim()) {
+    db.config.adminUsername = newUsername.trim();
+  }
+
+  writeDb(db);
+  res.json({
+    success: true,
+    message: 'Contraseña de administrador actualizada correctamente',
+    username: db.config.adminUsername || 'admin'
+  });
 });
 
 // Vite / Static setup

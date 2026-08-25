@@ -118,6 +118,8 @@ export interface CompanyConfig {
   warrantyYears: number;
   installationTerms: string;
   notIncludedTerms: string;
+  adminPassword?: string;
+  adminUsername?: string;
   adminPasswordHash?: string;
   popup?: AnnouncementPopup;
 }
@@ -129,6 +131,7 @@ export interface MasterUser {
   role: 'Administrador General' | 'Agente Comercial' | 'Supervisora Técnica';
   email: string;
   phone: string;
+  password?: string;
   active: boolean;
   createdAt: string;
 }

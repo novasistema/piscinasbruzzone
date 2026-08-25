@@ -18,6 +18,7 @@ export const initialCompanyConfig: CompanyConfig = {
 • INSTALACIÓN y conexión de equipo de filtrado y circulación de agua (bomba-filtro-skimmer-retornos(2)-cañería VULCANO).
 • CONSTRUCCIÓN de carpeta asfáltica perimetral, de 0,50 cm de ancho.
 • INSTALACIÓN de hilera perimetral de losetas atérmicas anti-deslizantes de 0.50x0.50 mts.
+• PRIMERA LIMPIEZA BONIFICADA: ¡Te regalamos la primera limpieza y puesta a punto del agua!
 • PLAZO DE EJECUCIÓN: Entre 2 y 3 días corridos.`,
   notIncludedTerms: `No está incluido dentro del proceso de instalación:
 • MATERIALES ÁRIDOS necesarios para instalación (cemento, arena, hercal, pastina, granza, malla sima).

@@ -5,7 +5,7 @@ import { syncDataToCloud, getCloudData } from '../firebase';
 import { Logo } from './Logo';
 import { ImageUploader } from './ImageUploader';
 import { AnnouncementModal } from './AnnouncementModal';
-import { Lock, LogOut, DollarSign, Wrench, Package, Users, Settings, Plus, Trash2, Edit2, CheckCircle2, Phone, Save, Percent, Sparkles, Image, Star, Shield, RefreshCw, X, Megaphone, Eye, Check, Download, UploadCloud, Database, Cloud } from 'lucide-react';
+import { Lock, LogOut, DollarSign, Wrench, Package, Users, Settings, Plus, Trash2, Edit2, CheckCircle2, Phone, Save, Percent, Sparkles, Image, Star, Shield, RefreshCw, X, Megaphone, Eye, Check, Download, UploadCloud, Database, Cloud, KeyRound, CheckCircle, AlertCircle } from 'lucide-react';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -21,8 +21,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
   const [loginError, setLoginError] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<'quotes' | 'maintenances' | 'models' | 'accessories' | 'projects' | 'testimonials' | 'settings' | 'master_users' | 'popup'>('quotes');
+  const [activeTab, setActiveTab] = useState<'quotes' | 'maintenances' | 'models' | 'accessories' | 'projects' | 'testimonials' | 'settings' | 'master_users' | 'popup' | 'security'>('quotes');
   const [showPopupPreview, setShowPopupPreview] = useState(false);
+
+  // Security / Change Password Form State
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [newAdminUsernameInput, setNewAdminUsernameInput] = useState(config?.adminUsername || 'admin');
+  const [changePasswordSuccessMsg, setChangePasswordSuccessMsg] = useState('');
+  const [changePasswordErrorMsg, setChangePasswordErrorMsg] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showNewPasswordText, setShowNewPasswordText] = useState(false);
 
   // Data States loaded from REST API with localStorage & initialData fallbacks
   const [quotes, setQuotes] = useState<QuoteOrder[]>([]);
@@ -263,10 +273,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
           return;
         }
       } else {
+        const errData = await res.json().catch(() => null);
+        if (errData?.error) {
+          setLoginError(errData.error);
+          return;
+        }
         throw new Error('Server status not ok');
       }
     } catch (err) {
-      // Local fallback check if API endpoint is unreachable
+      // Cloud Firestore & LocalStorage check
+      const cloudData = await getCloudData().catch(() => null);
+      const customPassword = cloudData?.config?.adminPassword?.trim() || companySettings.adminPassword?.trim() || localStorage.getItem('bruone_admin_password');
+      const customUsername = cloudData?.config?.adminUsername?.trim() || companySettings.adminUsername?.trim() || 'admin';
+
+      if (customPassword) {
+        const matchUser = (loginUsername.trim().toLowerCase() === customUsername.toLowerCase() || loginUsername.trim().toLowerCase() === 'admin');
+        if (loginPassword === customPassword && matchUser) {
+          setIsAuthenticated(true);
+          setCurrentUser({
+            id: 'admin-master',
+            username: customUsername,
+            fullName: 'Administrador Maestro Bruzzone',
+            role: 'Administrador General'
+          });
+          loadAllAdminData();
+          return;
+        } else {
+          setLoginError('Contraseña o usuario incorrecto');
+          return;
+        }
+      }
+
+      // Default fallback if no custom password configured yet
       if (loginPassword === 'bruzzone2026' || loginPassword === 'bruone2026' || loginPassword === 'admin') {
         setIsAuthenticated(true);
         setCurrentUser({
@@ -277,8 +315,73 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
         });
         loadAllAdminData();
       } else {
-        setLoginError('Credenciales incorrectas');
+        setLoginError('Contraseña o usuario incorrecto');
       }
+    }
+  };
+
+  const handleChangeAdminPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordErrorMsg('');
+    setChangePasswordSuccessMsg('');
+
+    if (!newPasswordInput || newPasswordInput.trim().length < 4) {
+      setChangePasswordErrorMsg('La nueva contraseña debe tener al menos 4 caracteres.');
+      return;
+    }
+
+    if (newPasswordInput !== confirmPasswordInput) {
+      setChangePasswordErrorMsg('Las contraseñas no coinciden. Por favor verifíquelas e intente de nuevo.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const cleanNewPassword = newPasswordInput.trim();
+      const cleanAdminUser = (newAdminUsernameInput || 'admin').trim();
+
+      const updatedConfig: CompanyConfig = {
+        ...companySettings,
+        adminPassword: cleanNewPassword,
+        adminUsername: cleanAdminUser
+      };
+
+      setCompanySettings(updatedConfig);
+      try {
+        localStorage.setItem('bruone_config', JSON.stringify(updatedConfig));
+        localStorage.setItem('bruone_admin_password', cleanNewPassword);
+      } catch (e) {}
+
+      // 1. Save & sync immediately to Cloud Firestore
+      await syncDataToCloud({ config: updatedConfig });
+
+      // 2. Save to backend server API
+      await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: currentPasswordInput,
+          newPassword: cleanNewPassword,
+          newUsername: cleanAdminUser
+        })
+      }).catch(() => null);
+
+      await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedConfig)
+      }).catch(() => null);
+
+      setChangePasswordSuccessMsg('¡Contraseña y usuario maestro actualizados con éxito en la Nube y en el Servidor! Ahora tu panel está 100% blindado.');
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+      loadAllAdminData();
+    } catch (err) {
+      console.error('Error changing admin password:', err);
+      setChangePasswordErrorMsg('Hubo un inconveniente al actualizar la contraseña. Reintente por favor.');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -636,9 +739,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
 
           <div className="flex items-center gap-3">
             {isAuthenticated && currentUser && (
-              <span className="text-xs text-slate-400 hidden sm:inline">
-                👤 {currentUser.fullName} ({currentUser.role})
-              </span>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('security')}
+                  className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  title="Cambiar contraseña de administrador"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cambiar Contraseña</span>
+                </button>
+                <span className="text-xs text-slate-400 hidden md:inline">
+                  👤 {currentUser.fullName} ({currentUser.role})
+                </span>
+              </>
             )}
             <button
               onClick={onClose}
@@ -686,7 +800,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                   placeholder="••••••••"
                   className="w-full text-xs p-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:ring-2 focus:ring-sky-500 outline-none"
                 />
-                <span className="text-[10px] text-slate-500 mt-1 block">Clave por defecto: <b>bruzzone2026</b></span>
+                {!companySettings.adminPassword ? (
+                  <span className="text-[10px] text-slate-500 mt-1 block">Clave inicial por defecto: <b>bruzzone2026</b></span>
+                ) : (
+                  <span className="text-[10px] text-emerald-400 mt-1 block flex items-center gap-1">
+                    <Shield className="w-3 h-3" /> Panel protegido con clave personalizada
+                  </span>
+                )}
               </div>
 
               {loginError && (
@@ -799,6 +919,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
               >
                 <Users className="w-4 h-4" />
                 <span>Usuarios Maestros</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('security')}
+                className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-colors ${
+                  activeTab === 'security' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:bg-slate-900 hover:text-white'
+                }`}
+              >
+                <KeyRound className="w-4 h-4 text-amber-400" />
+                <span>Seguridad & Clave Admin</span>
+                {companySettings.adminPassword ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 ml-auto" title="Contraseña Personalizada Activa" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping ml-auto" title="Se sugiere personalizar contraseña" />
+                )}
               </button>
 
               <div className="mt-auto pt-4 border-t border-slate-900 hidden md:block">
@@ -1253,70 +1388,181 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
               {/* TAB 7: SETTINGS */}
               {activeTab === 'settings' && (
                 <form onSubmit={handleSaveCompanyConfig} className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4 text-xs">
-                  <h3 className="text-lg font-black text-white border-b border-slate-800 pb-2">Configuración de Empresa</h3>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                    <div>
+                      <h3 className="text-lg font-black text-white">Configuración de Empresa y Contacto</h3>
+                      <p className="text-xs text-slate-400">Personalizá todos los datos de contacto, teléfonos, redes sociales, garantías y textos legales.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleSyncAllToCloud}
+                      className="bg-emerald-950 hover:bg-emerald-900 text-emerald-300 font-bold px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 border border-emerald-700/60 transition-colors"
+                    >
+                      <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Sincronizar a la Nube</span>
+                    </button>
+                  </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-slate-300 font-bold block mb-1">Nombre Comercial</label>
+                      <label className="text-slate-300 font-bold block mb-1">Nombre Comercial de la Empresa</label>
                       <input
                         type="text"
-                        value={companySettings.companyName}
+                        value={companySettings.companyName || ''}
                         onChange={e => setCompanySettings({ ...companySettings, companyName: e.target.value })}
-                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white font-bold"
+                        placeholder="Ej: Piscinas Bruzzone"
                       />
                     </div>
 
                     <div>
-                      <label className="text-slate-300 font-bold block mb-1">WhatsApp Comercial (Sin + ni espacios)</label>
+                      <label className="text-slate-300 font-bold block mb-1">Eslogan / Frase Destacada</label>
                       <input
                         type="text"
-                        value={companySettings.whatsappPhone}
-                        onChange={e => setCompanySettings({ ...companySettings, whatsappPhone: e.target.value })}
-                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white font-mono"
+                        value={companySettings.tagline || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, tagline: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Ej: Viví el Verano con la Mejor Calidad y Garantía Escrita"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-slate-300 font-bold block mb-1">Dirección / Showroom</label>
+                      <label className="text-slate-300 font-bold block mb-1">WhatsApp para Enlaces (Sin '+' ni guiones ni espacios)</label>
                       <input
                         type="text"
-                        value={companySettings.address}
-                        onChange={e => setCompanySettings({ ...companySettings, address: e.target.value })}
-                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        value={companySettings.whatsappPhone || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, whatsappPhone: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white font-mono"
+                        placeholder="Ej: 5491130005500"
                       />
                     </div>
 
                     <div>
-                      <label className="text-slate-300 font-bold block mb-1">Email de Contacto</label>
+                      <label className="text-slate-300 font-bold block mb-1">WhatsApp Formato Visible al Público</label>
                       <input
-                        type="email"
-                        value={companySettings.email}
-                        onChange={e => setCompanySettings({ ...companySettings, email: e.target.value })}
-                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        type="text"
+                        value={companySettings.whatsappFormatted || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, whatsappFormatted: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white font-mono"
+                        placeholder="Ej: +54 9 11 3000-5500"
                       />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-slate-300 font-bold block mb-1">Términos de Instalación (Lo que incluye)</label>
-                    <textarea
-                      rows={4}
-                      value={companySettings.installationTerms}
-                      onChange={e => setCompanySettings({ ...companySettings, installationTerms: e.target.value })}
-                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">Dirección / Showroom Comercial</label>
+                      <input
+                        type="text"
+                        value={companySettings.address || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, address: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Ej: Av. Las Gardenias 2450, Colectora Oeste"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">Email Oficial de Contacto</label>
+                      <input
+                        type="email"
+                        value={companySettings.email || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, email: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Ej: contacto@piscinasbruzzone.com.ar"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">Horarios de Atención</label>
+                      <input
+                        type="text"
+                        value={companySettings.businessHours || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, businessHours: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Ej: Lunes a Sábados de 8:00 a 19:00 hs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">Usuario de Instagram</label>
+                      <input
+                        type="text"
+                        value={companySettings.instagram || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, instagram: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Ej: @piscinas.bruzzone"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">Años de Garantía Escrita</label>
+                      <input
+                        type="number"
+                        value={companySettings.warrantyYears || 5}
+                        onChange={e => setCompanySettings({ ...companySettings, warrantyYears: Number(e.target.value) })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Ej: 5 o 10"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">Términos de Instalación (Lo que INCLUYE el servicio)</label>
+                      <textarea
+                        rows={5}
+                        value={companySettings.installationTerms || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, installationTerms: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Detalle los puntos de excavación, nivelación, filtrado..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 font-bold block mb-1">Materiales y Tareas NO INCLUIDAS (A cargo del cliente)</label>
+                      <textarea
+                        rows={5}
+                        value={companySettings.notIncludedTerms || ''}
+                        onChange={e => setCompanySettings({ ...companySettings, notIncludedTerms: e.target.value })}
+                        className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white"
+                        placeholder="Detalle áridos, agua para llenado, conexión eléctrica..."
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3 pt-2">
                     <button
                       type="submit"
-                      className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black px-6 py-3 rounded-xl text-xs flex items-center gap-2"
+                      className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black px-6 py-3 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20"
                     >
                       <Save className="w-4 h-4" />
-                      <span>Guardar Cambios en Servidor</span>
+                      <span>Guardar Ajustes en Servidor y Nube</span>
                     </button>
+                  </div>
+
+                  {/* Security Shortcut in Settings */}
+                  <div className="mt-8 pt-6 border-t border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-amber-300">
+                        <KeyRound className="w-4 h-4" />
+                        <h4 className="font-bold text-sm text-white">Seguridad & Contraseña del Administrador</h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('security')}
+                        className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors"
+                      >
+                        <KeyRound className="w-3.5 h-3.5" />
+                        <span>Ir a Cambiar Contraseña</span>
+                      </button>
+                    </div>
+                    <p className="text-slate-400 text-xs leading-relaxed">
+                      Cambiá la contraseña maestra para que nadie más pueda ingresar al administrador. La clave se sincroniza en tiempo real en la Nube y protege toda la información de presupuestos, modelos y costos.
+                    </p>
                   </div>
 
                   {/* Backup & Restore Tools Section */}
@@ -1565,6 +1811,166 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                     </button>
                   </div>
                 </form>
+              )}
+
+              {/* TAB 10: SEGURIDAD & CAMBIO DE CONTRASEÑA */}
+              {activeTab === 'security' && (
+                <div className="space-y-6 text-xs max-w-2xl">
+                  <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                        <KeyRound className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-white">Seguridad & Contraseña del Administrador</h3>
+                        <p className="text-xs text-slate-400">
+                          Configurá tu clave privada para que nadie ajeno a la empresa pueda ingresar al panel.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Security Status Badge */}
+                  <div className={`p-4 rounded-2xl border flex items-start gap-3.5 ${
+                    companySettings.adminPassword
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  }`}>
+                    {companySettings.adminPassword ? (
+                      <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                    )}
+                    <div className="space-y-1">
+                      <h4 className="font-black text-white text-sm">
+                        {companySettings.adminPassword
+                          ? '🛡️ Panel 100% Protegido y Blindado'
+                          : '⚠️ Advertencia: Clave por defecto en uso (bruzzone2026)'}
+                      </h4>
+                      <p className="text-xs leading-relaxed text-slate-300">
+                        {companySettings.adminPassword
+                          ? 'Tu contraseña maestra personalizada está activa y sincronizada en la nube Firestore. Sólo vos y tu equipo de confianza conocen la clave de acceso.'
+                          : 'El sistema está utilizando la clave inicial genérica. Por motivos de seguridad y privacidad de precios, se recomienda cambiarla a una contraseña exclusiva.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Change Password Form */}
+                  <form onSubmit={handleChangeAdminPassword} className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <span className="font-bold text-white text-sm flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-cyan-400" />
+                        <span>Formulario de Actualización de Clave</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPasswordText(!showNewPasswordText)}
+                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 font-medium"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>{showNewPasswordText ? 'Ocultar caracteres' : 'Mostrar texto de contraseña'}</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-3.5">
+                      <div>
+                        <label className="text-slate-300 font-bold block mb-1">Nombre de Usuario Administrador</label>
+                        <input
+                          type="text"
+                          required
+                          value={newAdminUsernameInput}
+                          onChange={e => setNewAdminUsernameInput(e.target.value)}
+                          placeholder="admin"
+                          className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white font-medium focus:ring-2 focus:ring-sky-500 outline-none"
+                        />
+                        <span className="text-[10px] text-slate-500 mt-1 block">El nombre con el que iniciás sesión en el panel.</span>
+                      </div>
+
+                      {companySettings.adminPassword && (
+                        <div>
+                          <label className="text-slate-300 font-bold block mb-1">Contraseña Actual (Para verificar)</label>
+                          <input
+                            type={showNewPasswordText ? 'text' : 'password'}
+                            value={currentPasswordInput}
+                            onChange={e => setCurrentPasswordInput(e.target.value)}
+                            placeholder="••••••••"
+                            className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white font-medium focus:ring-2 focus:ring-sky-500 outline-none"
+                          />
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <div>
+                          <label className="text-slate-300 font-bold block mb-1">Nueva Contraseña Segura *</label>
+                          <input
+                            type={showNewPasswordText ? 'text' : 'password'}
+                            required
+                            value={newPasswordInput}
+                            onChange={e => setNewPasswordInput(e.target.value)}
+                            placeholder="Mínimo 4 caracteres"
+                            className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-slate-300 font-bold block mb-1">Repetir Nueva Contraseña *</label>
+                          <input
+                            type={showNewPasswordText ? 'text' : 'password'}
+                            required
+                            value={confirmPasswordInput}
+                            onChange={e => setConfirmPasswordInput(e.target.value)}
+                            placeholder="Repita la nueva clave"
+                            className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {changePasswordErrorMsg && (
+                      <div className="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-3 rounded-xl font-medium flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{changePasswordErrorMsg}</span>
+                      </div>
+                    )}
+
+                    {changePasswordSuccessMsg && (
+                      <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 p-3.5 rounded-xl font-medium flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 shrink-0 text-emerald-400" />
+                        <span>{changePasswordSuccessMsg}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                      <button
+                        type="submit"
+                        disabled={isChangingPassword}
+                        className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-6 py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 disabled:opacity-50 transition-all"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                        <span>{isChangingPassword ? 'Guardando en la Nube...' : 'Guardar y Blindar con Nueva Contraseña'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsAuthenticated(false)}
+                        className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-3 rounded-xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4 text-rose-400" />
+                        <span>Cerrar Sesión para Probar Nueva Clave</span>
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Information Box */}
+                  <div className="bg-slate-900/60 p-4 rounded-2xl border border-slate-800 text-slate-400 space-y-2 text-[11px] leading-relaxed">
+                    <span className="font-bold text-slate-200 block">ℹ️ ¿Cómo funciona la seguridad de acceso?</span>
+                    <ul className="list-disc pl-4 space-y-1 text-slate-400">
+                      <li>Al cambiar la contraseña, se actualiza automáticamente en Firebase Firestore y en el servidor.</li>
+                      <li>Cualquier intento de ingreso desde otro celular o computadora exigirá la nueva contraseña.</li>
+                      <li>La clave anterior (incluyendo la clave inicial por defecto) queda automáticamente anulada e inhabilitada.</li>
+                    </ul>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1995,6 +2401,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                 value={newMasterUser.username || ''}
                 onChange={e => setNewMasterUser({ ...newMasterUser, username: e.target.value })}
                 className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-400 font-bold mb-1">Contraseña de Acceso</label>
+              <input
+                type="password"
+                placeholder="Opcional (Usa la clave maestra si está vacía)"
+                value={newMasterUser.password || ''}
+                onChange={e => setNewMasterUser({ ...newMasterUser, password: e.target.value })}
+                className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white"
               />
             </div>
 

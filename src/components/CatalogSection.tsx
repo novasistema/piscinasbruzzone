@@ -384,6 +384,14 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
               </div>
 
               {/* Total Summary & Quote Action */}
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-3 rounded-2xl flex items-center gap-3 text-xs text-emerald-900">
+                <span className="text-xl">🎁</span>
+                <div>
+                  <strong className="block font-black text-emerald-800">¡Beneficio Exclusivo con tu Compra!</strong>
+                  <span>Te regalamos la primera limpieza y puesta a punto del agua sin cargo.</span>
+                </div>
+              </div>
+
               <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div>
                   <span className="text-slate-400 text-xs block">Presupuesto Estimado Final:</span>

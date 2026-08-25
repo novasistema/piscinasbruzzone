@@ -51,6 +51,35 @@ export default function App() {
 
   const fetchAppData = async () => {
     try {
+      // 1. Try Cloud Firestore first (ensures cross-device & cloud configuration is never overwritten by defaults)
+      const cloudData = await getCloudData().catch(() => null);
+      if (cloudData) {
+        if (cloudData.config) {
+          setConfig(cloudData.config);
+          try { localStorage.setItem('bruone_config', JSON.stringify(cloudData.config)); } catch (e) {}
+        }
+        if (Array.isArray(cloudData.models) && cloudData.models.length > 0) {
+          setModels(cloudData.models);
+          try { localStorage.setItem('bruone_models', JSON.stringify(cloudData.models)); } catch (e) {}
+        }
+        if (Array.isArray(cloudData.accessories) && cloudData.accessories.length > 0) {
+          setAccessories(cloudData.accessories);
+          try { localStorage.setItem('bruone_accessories', JSON.stringify(cloudData.accessories)); } catch (e) {}
+        }
+        if (Array.isArray(cloudData.projects) && cloudData.projects.length > 0) {
+          setProjects(cloudData.projects);
+          try { localStorage.setItem('bruone_projects', JSON.stringify(cloudData.projects)); } catch (e) {}
+        }
+        if (Array.isArray(cloudData.testimonials) && cloudData.testimonials.length > 0) {
+          setTestimonials(cloudData.testimonials);
+          try { localStorage.setItem('bruone_testimonials', JSON.stringify(cloudData.testimonials)); } catch (e) {}
+        }
+        if (Array.isArray(cloudData.maintenances)) {
+          setMaintenances(cloudData.maintenances);
+        }
+        return;
+      }
+
       const timestamp = Date.now();
       // Try unified all-data endpoint first for fast atomic sync
       const res = await fetch(`/api/all-data?t=${timestamp}`, {
