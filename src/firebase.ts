@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { CompanyConfig, PoolModel, Accessory, ProjectPhoto, Testimonial, MaintenanceVisit, MasterUser } from './types';
+import { CompanyConfig, PoolModel, Accessory, ProjectPhoto, Testimonial, MaintenanceVisit, MasterUser, QuoteOrder } from './types';
 
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -19,6 +19,7 @@ export interface AppSyncData {
   testimonials?: Testimonial[];
   maintenances?: MaintenanceVisit[];
   masterUsers?: MasterUser[];
+  quotes?: QuoteOrder[];
   updatedAt?: string;
 }
 

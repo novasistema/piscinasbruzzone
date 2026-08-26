@@ -53,7 +53,18 @@ export interface QuoteOrder {
   city?: string;
   poolModelCode: string;
   poolModelName: string;
+  poolModelPrice?: number;
+  customModelPrice?: number;
   accessoriesSelected: string[];
+  accessoriesDetails?: { id: string; name: string; price: number; quantity?: number }[];
+  customItems?: { id: string; name: string; price: number }[];
+  discountAmount?: number;
+  discountPercent?: number;
+  discountType?: 'none' | 'percent' | 'fixed';
+  paymentMethod?: string;
+  validityDays?: number;
+  includeInstallation?: boolean;
+  giftCleanPromo?: boolean;
   totalPrice: number;
   notes?: string;
   status: 'pendiente' | 'contactado' | 'presupuestado' | 'vendido' | 'cancelado';

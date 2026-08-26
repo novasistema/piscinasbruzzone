@@ -5,7 +5,8 @@ import { syncDataToCloud, getCloudData } from '../firebase';
 import { Logo } from './Logo';
 import { ImageUploader } from './ImageUploader';
 import { AnnouncementModal } from './AnnouncementModal';
-import { Lock, LogOut, DollarSign, Wrench, Package, Users, Settings, Plus, Trash2, Edit2, CheckCircle2, Phone, Save, Percent, Sparkles, Image, Star, Shield, RefreshCw, X, Megaphone, Eye, Check, Download, UploadCloud, Database, Cloud, KeyRound, CheckCircle, AlertCircle } from 'lucide-react';
+import { AdminQuoteBuilder } from './AdminQuoteBuilder';
+import { Lock, LogOut, DollarSign, Wrench, Package, Users, Settings, Plus, Trash2, Edit2, CheckCircle2, Phone, Save, Percent, Sparkles, Image, Star, Shield, RefreshCw, X, Megaphone, Eye, Check, Download, UploadCloud, Database, Cloud, KeyRound, CheckCircle, AlertCircle, Calculator, Send } from 'lucide-react';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
   const [loginError, setLoginError] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<'quotes' | 'maintenances' | 'models' | 'accessories' | 'projects' | 'testimonials' | 'settings' | 'master_users' | 'popup' | 'security'>('quotes');
+  const [activeTab, setActiveTab] = useState<'quotes' | 'quote_builder' | 'maintenances' | 'models' | 'accessories' | 'projects' | 'testimonials' | 'settings' | 'master_users' | 'popup' | 'security'>('quotes');
   const [showPopupPreview, setShowPopupPreview] = useState(false);
 
   // Security / Change Password Form State
@@ -385,6 +386,112 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
     }
   };
 
+  const handleSaveQuoteFromBuilder = async (newQuote: QuoteOrder): Promise<QuoteOrder | null> => {
+    try {
+      const updatedQuotes = [newQuote, ...quotes.filter(q => q.id !== newQuote.id)];
+      setQuotes(updatedQuotes);
+      try {
+        localStorage.setItem('bruone_quotes', JSON.stringify(updatedQuotes));
+      } catch (e) {}
+      
+      // 1. Sync to Cloud Firestore
+      await syncDataToCloud({ quotes: updatedQuotes });
+
+      // 2. Post to backend server
+      const res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newQuote)
+      }).catch(() => null);
+
+      let finalQuote = newQuote;
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.quote) {
+          finalQuote = data.quote;
+        }
+      }
+      loadAllAdminData();
+      return finalQuote;
+    } catch (err) {
+      console.error('Error saving quote from builder:', err);
+      return newQuote;
+    }
+  };
+
+  const formatWhatsAppPhone = (phone: string): string => {
+    let clean = (phone || '').replace(/\D/g, '');
+    if (!clean) return '';
+    if (clean.startsWith('549')) return clean;
+    if (clean.startsWith('54') && clean.length >= 11) {
+      if (clean[2] !== '9') return '549' + clean.slice(2);
+      return clean;
+    }
+    if (clean.startsWith('0')) clean = clean.slice(1);
+    if (clean.includes('15') && clean.length >= 11 && !clean.startsWith('54')) {
+      clean = clean.replace('15', '');
+    }
+    if (clean.length === 10) return '549' + clean;
+    if (!clean.startsWith('54') && clean.length >= 8) return '549' + clean;
+    return clean;
+  };
+
+  const getQuoteWhatsAppUrl = (q: QuoteOrder): string => {
+    const cleanPhone = formatWhatsAppPhone(q.clientPhone);
+    const dateStr = new Date(q.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    
+    let msg = `*PRESUPUESTO OFICIAL - PISCINAS BRUZZONE* 🏊✨\n`;
+    msg += `─────────────────────────\n`;
+    msg += `📋 *Presupuesto N°:* #${q.id}\n`;
+    msg += `📅 *Fecha:* ${dateStr}\n`;
+    msg += `👤 *Cliente:* ${q.clientName}\n`;
+    if (q.city) msg += `📍 *Localidad:* ${q.city}\n`;
+    if (q.clientAddress) msg += `🏡 *Domicilio / Obra:* ${q.clientAddress}\n`;
+    msg += `─────────────────────────\n\n`;
+
+    msg += `🏊 *PISCINA SELECCIONADA:*\n`;
+    msg += `• *Modelo:* ${q.poolModelName} (${q.poolModelCode})\n`;
+    if (q.customModelPrice) {
+      msg += `• *Precio Base Casco:* ${formatCurrency(q.customModelPrice)}\n`;
+    }
+
+    if (q.accessoriesSelected && q.accessoriesSelected.length > 0) {
+      msg += `\n✨ *ACCESORIOS Y EQUIPAMIENTO:*\n`;
+      q.accessoriesSelected.forEach(acc => {
+        msg += `• ${acc}\n`;
+      });
+    }
+
+    if (q.customItems && q.customItems.length > 0) {
+      msg += `\n🛠️ *SERVICIOS / ÍTEMS ADICIONALES:*\n`;
+      q.customItems.forEach(item => {
+        msg += `• ${item.name}: ${formatCurrency(item.price)}\n`;
+      });
+    }
+
+    if (q.giftCleanPromo) {
+      msg += `\n🎁 *BENEFICIO EXCLUSIVO BONIFICADO:*\n`;
+      msg += `• *¡1° Limpieza Profunda y Puesta a Punto del Agua DE REGALO!*\n`;
+    }
+
+    msg += `\n─────────────────────────\n`;
+    msg += `💰 *TOTAL FINAL PRESUPUESTADO:* *${formatCurrency(q.totalPrice)}*\n\n`;
+
+    if (q.paymentMethod) msg += `💳 *Forma de Pago:* ${q.paymentMethod}\n`;
+    msg += `🛡️ *Garantía:* ${companySettings.warrantyYears || 10} Años de Garantía Escrita de Fábrica\n`;
+    if (q.validityDays) msg += `⏱️ *Validez de la Oferta:* ${q.validityDays} Días\n`;
+    if (q.notes) msg += `\n📝 *Observaciones:* ${q.notes}\n`;
+
+    msg += `\n─────────────────────────\n`;
+    msg += `*PISCINAS BRUZZONE* — _Fábrica e Instalación Directa_\n`;
+    msg += `📞 WhatsApp de Atención: ${companySettings.phone || '+54 9 358 485-2924'}\n`;
+    msg += `📍 Alejandro Roca y cobertura en toda la región.\n`;
+    msg += `_¡Quedamos a tu entera disposición para visitar el terreno y coordinar la obra!_`;
+
+    const encoded = encodeURIComponent(msg);
+    return cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  };
+
   const handleUpdateQuoteStatus = async (id: string, status: any) => {
     await fetch(`/api/quotes/${id}`, {
       method: 'PUT',
@@ -742,6 +849,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
               <>
                 <button
                   type="button"
+                  onClick={() => setActiveTab('quote_builder')}
+                  className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                  title="Crear y armar presupuesto personalizado"
+                >
+                  <Calculator className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Presupuestar</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveTab('security')}
                   className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
                   title="Cambiar contraseña de administrador"
@@ -828,6 +944,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
           <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
             {/* Sidebar Navigation */}
             <div className="w-full md:w-64 bg-slate-950 p-3 border-r border-slate-800 flex flex-row md:flex-col gap-1 overflow-x-auto no-scrollbar shrink-0">
+              <button
+                onClick={() => setActiveTab('quote_builder')}
+                className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-colors ${
+                  activeTab === 'quote_builder' ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400' : 'text-emerald-400 hover:bg-slate-900'
+                }`}
+              >
+                <Calculator className="w-4 h-4" />
+                <span>Presupuestador Admin</span>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] px-1.5 py-0.2 rounded font-black ml-auto">
+                  NUEVO
+                </span>
+              </button>
+
               <button
                 onClick={() => setActiveTab('quotes')}
                 className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 whitespace-nowrap transition-colors ${
@@ -949,21 +1078,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
 
             {/* Content Area */}
             <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
+              {/* TAB 0: PRESUPUESTADOR DE VENTAS / COTIZADOR */}
+              {activeTab === 'quote_builder' && (
+                <AdminQuoteBuilder
+                  models={models}
+                  accessories={accessories}
+                  config={companySettings}
+                  onSaveQuote={handleSaveQuoteFromBuilder}
+                  formatCurrency={formatCurrency}
+                  onViewQuotesList={() => setActiveTab('quotes')}
+                />
+              )}
+
               {/* TAB 1: QUOTES / ORDERS */}
               {activeTab === 'quotes' && (
                 <div className="space-y-4">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
                     <div>
                       <h3 className="text-lg font-black text-white">Gestión de Pedidos & Cotizaciones</h3>
-                      <p className="text-xs text-slate-400">Solicitudes registradas por clientes vía catálogo web app.</p>
+                      <p className="text-xs text-slate-400">Solicitudes registradas y presupuestos generados.</p>
                     </div>
-                    <button
-                      onClick={() => setIsMassPriceOpen(true)}
-                      className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5"
-                    >
-                      <Percent className="w-4 h-4" />
-                      <span>Actualización Masiva Precios</span>
-                    </button>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => setActiveTab('quote_builder')}
+                        className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Nuevo Presupuesto</span>
+                      </button>
+                      <button
+                        onClick={() => setIsMassPriceOpen(true)}
+                        className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5"
+                      >
+                        <Percent className="w-4 h-4" />
+                        <span>Actualización Masiva Precios</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -997,15 +1147,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                           </select>
 
                           <a
-                            href={`https://wa.me/${q.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                              `Hola ${q.clientName}, te contactamos de Piscinas Bruzzone respecto a tu cotización ${q.id} de ${q.poolModelName}.`
-                            )}`}
+                            href={getQuoteWhatsAppUrl(q)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black px-3 py-1.5 rounded-xl text-xs flex items-center gap-1"
+                            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all"
+                            title="Enviar presupuesto completo por WhatsApp al cliente"
                           >
-                            <Phone className="w-3.5 h-3.5" />
-                            <span>Abrir Chat WhatsApp</span>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Enviar Presupuesto por WhatsApp</span>
                           </a>
                         </div>
                       </div>
