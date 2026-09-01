@@ -82,32 +82,32 @@ export const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
         {/* Backdrop overlay */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleClose}
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity"
+          className="fixed inset-0 bg-slate-950/85 backdrop-blur-md transition-opacity"
         />
 
         {/* Modal Window */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          initial={{ opacity: 0, scale: 0.92, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          exit={{ opacity: 0, scale: 0.92, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="relative w-full max-w-lg bg-slate-900 border border-cyan-500/30 rounded-3xl shadow-2xl shadow-cyan-950/50 overflow-hidden text-white z-10 my-auto"
+          className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-slate-900 border border-cyan-500/30 rounded-3xl shadow-2xl shadow-cyan-950/60 overflow-hidden text-white z-10 my-auto"
         >
           {/* Top Decorative Banner line */}
-          <div className="h-1.5 w-full bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-600" />
+          <div className="h-1.5 w-full bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-600 shrink-0" />
 
           {/* Close Button */}
           <button
             type="button"
             onClick={handleClose}
-            className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 flex items-center justify-center transition-colors shadow-lg"
+            className="absolute top-3.5 right-3.5 z-20 w-9 h-9 rounded-full bg-slate-950/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/80 flex items-center justify-center transition-colors shadow-lg backdrop-blur-xs"
             title="Cerrar anuncio"
           >
             <X className="w-5 h-5" />
@@ -115,79 +115,83 @@ export const AnnouncementModal: React.FC<AnnouncementModalProps> = ({
 
           {/* Preview Badge Indicator if in Admin Preview */}
           {isPreview && (
-            <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-300 text-[11px] font-bold py-1.5 px-4 text-center flex items-center justify-center gap-1.5">
+            <div className="bg-amber-500/20 border-b border-amber-500/30 text-amber-300 text-[11px] font-bold py-1.5 px-4 text-center flex items-center justify-center gap-1.5 shrink-0">
               <ShieldAlert className="w-4 h-4" />
               <span>VISTA PREVIA DEL POP-UP (Modo Administrador)</span>
             </div>
           )}
 
-          {/* Image Header if present */}
-          {currentPopup.imageUrl && (
-            <div className="relative w-full h-48 sm:h-56 bg-slate-950 overflow-hidden">
-              <img
-                src={currentPopup.imageUrl}
-                alt={currentPopup.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1572331165267-854da2b10ccc?auto=format&fit=crop&w=800&q=80';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
-            </div>
-          )}
-
-          {/* Modal Body */}
-          <div className={`p-6 sm:p-8 space-y-4 ${currentPopup.imageUrl ? '-mt-6 relative z-10' : ''}`}>
-            {/* Badge */}
-            {currentPopup.badge && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-500/20 to-sky-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-black tracking-wide uppercase shadow-inner">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{currentPopup.badge}</span>
+          {/* Scrollable container for modal content */}
+          <div className="overflow-y-auto flex-1 flex flex-col">
+            {/* Image Header with adaptive fit and centering */}
+            {currentPopup.imageUrl && (
+              <div className="relative w-full h-48 sm:h-64 bg-slate-950/90 flex items-center justify-center p-2 overflow-hidden border-b border-slate-800/80 shrink-0">
+                <img
+                  src={currentPopup.imageUrl}
+                  alt={currentPopup.title}
+                  referrerPolicy="no-referrer"
+                  className="max-h-full max-w-full w-auto h-auto object-contain object-center drop-shadow-md"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1572331165267-854da2b10ccc?auto=format&fit=crop&w=800&q=80';
+                  }}
+                />
               </div>
             )}
 
-            {/* Title */}
-            <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
-              {currentPopup.title}
-            </h2>
+            {/* Modal Body */}
+            <div className="p-5 sm:p-7 space-y-3.5 flex-1 flex flex-col justify-between">
+              <div className="space-y-3">
+                {/* Badge */}
+                {currentPopup.badge && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-cyan-500/20 to-sky-500/20 border border-cyan-400/40 text-cyan-300 text-xs font-black tracking-wide uppercase shadow-inner">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>{currentPopup.badge}</span>
+                  </div>
+                )}
 
-            {/* Message Body */}
-            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-              {currentPopup.message}
-            </p>
+                {/* Title */}
+                <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                  {currentPopup.title}
+                </h2>
 
-            {/* Action Buttons */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
-              {currentPopup.ctaAction !== 'close' && (
+                {/* Message Body */}
+                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                  {currentPopup.message}
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 flex flex-col sm:flex-row items-center gap-2.5">
+                {currentPopup.ctaAction !== 'close' && (
+                  <button
+                    type="button"
+                    onClick={handleAction}
+                    className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    {currentPopup.ctaAction === 'whatsapp' ? (
+                      <>
+                        <MessageCircle className="w-5 h-5 text-slate-950 fill-current" />
+                        <span>{currentPopup.ctaText || 'Consultar por WhatsApp'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="w-5 h-5" />
+                        <span>{currentPopup.ctaText || 'Ver Promoción'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
                 <button
                   type="button"
-                  onClick={handleAction}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  onClick={handleClose}
+                  className={`w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-sm border border-slate-700 transition-colors text-center ${
+                    currentPopup.ctaAction === 'close' ? 'w-full' : ''
+                  }`}
                 >
-                  {currentPopup.ctaAction === 'whatsapp' ? (
-                    <>
-                      <MessageCircle className="w-5 h-5 text-slate-950 fill-current" />
-                      <span>{currentPopup.ctaText || 'Consultar por WhatsApp'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <ExternalLink className="w-5 h-5" />
-                      <span>{currentPopup.ctaText || 'Ver Promoción'}</span>
-                    </>
-                  )}
+                  Cerrar
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={handleClose}
-                className={`w-full sm:w-auto py-3.5 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-sm border border-slate-700 transition-colors text-center ${
-                  currentPopup.ctaAction === 'close' ? 'w-full' : ''
-                }`}
-              >
-                Cerrar
-              </button>
+              </div>
             </div>
           </div>
         </motion.div>
