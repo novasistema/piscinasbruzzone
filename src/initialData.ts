@@ -236,6 +236,65 @@ export const initialModels: PoolModel[] = [
       '2 mallas sima'
     ],
     description: 'Modelo insignia de 7.50m de longitud y 3.15m de ancho. Máximo nivel de exclusividad y resistencia.'
+  },
+  {
+    id: 'm280',
+    code: 'M280',
+    name: 'Mini Piscina Serena 280',
+    line: 'mini',
+    length: 2.80,
+    width: 2.25,
+    depth: 0.75,
+    capacity: 4500,
+    costPrice: 1950000,
+    profitMargin: 40,
+    price: 2750000,
+    imageUrl: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
+    isPopular: true,
+    includes: [
+      'Formato compacto ideal para patios pequeños, terrazas o quintas',
+      'Bomba y equipo de filtrado completo VULCANO',
+      'Skimmer y retornos de hidromasaje',
+      'Losetas atérmicas perimetrales',
+      'Garantía escrita de 5 años'
+    ],
+    clientMaterials: [
+      '8 bolsas de cemento',
+      '2 bolsas de hercal',
+      '1 m³ de arena gruesa',
+      '4.500 litros de agua',
+      '10 kg de pastina atérmica'
+    ],
+    description: 'Mini piscina y spa de fibra de vidrio de alta resistencia. Máximo relax en espacios reducidos con bajo costo de mantenimiento.'
+  },
+  {
+    id: 'm390',
+    code: 'M390',
+    name: 'Mini Piscina Serena 390',
+    line: 'mini',
+    length: 3.90,
+    width: 2.15,
+    depth: 0.65,
+    capacity: 5500,
+    costPrice: 2250000,
+    profitMargin: 40,
+    price: 3150000,
+    imageUrl: 'https://images.unsplash.com/photo-1572331165267-854da2b10ccc?auto=format&fit=crop&w=800&q=80',
+    includes: [
+      'Línea Mini Piscina / Hidro con asientos y descanso',
+      'Equipo de filtrado VULCANO completo',
+      'Casilla de fibra reforzada',
+      'Losetas perimetrales atérmicas',
+      'Garantía de 5 años'
+    ],
+    clientMaterials: [
+      '10 bolsas de cemento',
+      '2 bolsas de hercal',
+      '1.5 m³ de arena gruesa',
+      '5.500 litros de agua',
+      '12 kg de pastina'
+    ],
+    description: 'Diseño anatómico con bancos de relax para disfrutar en familia. Rápida instalación y climatización económica.'
   }
 ];
 

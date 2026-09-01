@@ -2,7 +2,7 @@ export interface PoolModel {
   id: string;
   code: string;
   name: string;
-  line: 'clasica' | 'solarium';
+  line: 'clasica' | 'solarium' | 'mini' | string;
   length: number; // in meters
   width: number;  // in meters
   depth: number;  // in meters

@@ -65,7 +65,7 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
   const [selectedModelId, setSelectedModelId] = useState<string>(models[0]?.id || '');
   const [customModelPrice, setCustomModelPrice] = useState<string>('');
   const [modelSearch, setModelSearch] = useState('');
-  const [modelLineFilter, setModelLineFilter] = useState<'all' | 'clasica' | 'solarium'>('all');
+  const [modelLineFilter, setModelLineFilter] = useState<'all' | 'clasica' | 'solarium' | 'mini'>('all');
 
   // Accessories Selection (Quantity map: accessoryId -> quantity)
   const [selectedAccQuantities, setSelectedAccQuantities] = useState<Record<string, number>>({});
@@ -269,7 +269,7 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
       message += `• *Modelo:* ${selectedModel.name} (${selectedModel.code})\n`;
       message += `• *Dimensiones:* ${selectedModel.length}m largo x ${selectedModel.width}m ancho x ${selectedModel.depth}m prof.\n`;
       message += `• *Capacidad:* ${selectedModel.capacity.toLocaleString('es-AR')} Litros\n`;
-      message += `• *Línea de Diseño:* ${selectedModel.line === 'solarium' ? 'Solárium Húmedo / Playa incorporada' : 'Clásica Rectangular'}\n`;
+      message += `• *Línea de Diseño:* ${selectedModel.line === 'mini' ? 'Mini Piscina / Hidromasaje' : selectedModel.line === 'solarium' ? 'Solárium Húmedo / Playa incorporada' : 'Clásica Rectangular'}\n`;
       if (includeInstallation) {
         message += `• *Modalidad:* Llave en mano (Casco reforzado + Equipo de filtrado Vulcano + Losetas perimetrales atérmicas + Excavación e Instalación).\n`;
       }
@@ -552,8 +552,8 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
               </div>
 
               {/* Line Filter & Search */}
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap bg-slate-900 p-1 rounded-xl border border-slate-800">
                   <button
                     type="button"
                     onClick={() => setModelLineFilter('all')}
@@ -580,6 +580,15 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
                     }`}
                   >
                     Solárium
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModelLineFilter('mini')}
+                    className={`px-2.5 py-1 rounded-lg font-bold text-[10px] transition-colors ${
+                      modelLineFilter === 'mini' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Mini Piscinas
                   </button>
                 </div>
 
@@ -620,14 +629,19 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
                     )}
 
                     <div className="flex gap-3 items-center">
-                      <img
-                        src={m.imageUrl}
-                        alt={m.name}
-                        referrerPolicy="no-referrer"
-                        className="w-14 h-14 rounded-xl object-cover border border-slate-700 shrink-0"
-                      />
+                      <div className="w-16 h-16 rounded-xl bg-slate-950 border border-slate-700/80 shrink-0 flex items-center justify-center p-1 overflow-hidden">
+                        <img
+                          src={m.imageUrl}
+                          alt={m.name}
+                          referrerPolicy="no-referrer"
+                          className="max-h-full max-w-full w-auto h-auto object-contain object-center drop-shadow-sm"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80';
+                          }}
+                        />
+                      </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-extrabold text-white text-xs truncate">{m.name}</span>
                           <span className="text-[10px] font-mono text-sky-400 bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">
                             {m.code}
@@ -636,8 +650,14 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
                         <div className="text-[11px] text-slate-400 mt-0.5">
                           📏 {m.length}m x {m.width}m ({m.depth}m prof.)
                         </div>
-                        <div className="text-[10px] text-cyan-400 font-semibold">
-                          💧 {m.capacity.toLocaleString('es-AR')} Litros • Línea {m.line === 'solarium' ? 'Solárium' : 'Clásica'}
+                        <div className="text-[10px] font-semibold mt-0.5">
+                          {m.line === 'mini' ? (
+                            <span className="text-violet-300">🛁 Mini Piscina • {m.capacity.toLocaleString('es-AR')} L</span>
+                          ) : m.line === 'solarium' ? (
+                            <span className="text-amber-300">☀️ Línea Solárium • {m.capacity.toLocaleString('es-AR')} L</span>
+                          ) : (
+                            <span className="text-cyan-400">🏊 Línea Clásica • {m.capacity.toLocaleString('es-AR')} L</span>
+                          )}
                         </div>
                       </div>
                     </div>

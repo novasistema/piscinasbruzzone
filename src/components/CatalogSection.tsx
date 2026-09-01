@@ -10,7 +10,7 @@ interface CatalogSectionProps {
 }
 
 export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessories, config }) => {
-  const [lineFilter, setLineFilter] = useState<'todas' | 'clasica' | 'solarium'>('todas');
+  const [lineFilter, setLineFilter] = useState<'todas' | 'clasica' | 'solarium' | 'mini'>('todas');
   const [selectedModel, setSelectedModel] = useState<PoolModel | null>(null);
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -96,6 +96,7 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
     msg += `📱 *Teléfono:* ${clientPhone}\n`;
     if (clientCity) msg += `📍 *Ubicación:* ${clientCity}\n`;
     msg += `🏊 *Modelo Seleccionado:* ${selectedModel.name} (${selectedModel.code})\n`;
+    msg += `🏷️ *Línea:* ${selectedModel.line === 'mini' ? 'Mini Piscina / Hidromasaje' : selectedModel.line === 'solarium' ? 'Línea Solárium Húmedo' : 'Línea Clásica Rectangular'}\n`;
     msg += `📏 *Medidas:* ${selectedModel.length}m x ${selectedModel.width}m (Prof. ${selectedModel.depth}m)\n`;
     msg += `💧 *Capacidad:* ${selectedModel.capacity.toLocaleString('es-AR')} Litros\n`;
     
@@ -140,7 +141,7 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
         </p>
 
         {/* Filter Pills */}
-        <div className="flex items-center justify-center gap-2 mt-4">
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
           <button
             onClick={() => setLineFilter('todas')}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
@@ -171,6 +172,16 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
           >
             Línea Solarium (S)
           </button>
+          <button
+            onClick={() => setLineFilter('mini')}
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              lineFilter === 'mini'
+                ? 'bg-violet-600 text-white shadow-md'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Mini Piscinas (M)
+          </button>
         </div>
       </div>
 
@@ -181,8 +192,8 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
             key={model.id}
             className="bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-lg transition-all overflow-hidden flex flex-col group relative"
           >
-            {/* Image Container */}
-            <div className="relative h-48 sm:h-52 bg-slate-100 overflow-hidden">
+            {/* Image Container with Perfectly Centered and Uncut Pool Photos */}
+            <div className="relative h-52 sm:h-60 bg-gradient-to-b from-slate-50 via-slate-100/70 to-slate-100/90 border-b border-slate-100 flex items-center justify-center p-3.5 overflow-hidden">
               <img
                 src={model.imageUrl}
                 alt={model.name}
@@ -190,20 +201,28 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80';
                 }}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                className="max-h-full max-w-full w-auto h-auto object-contain object-center drop-shadow-sm group-hover:scale-105 transition-transform duration-300"
               />
-              <div className="absolute top-3 left-3 flex flex-col gap-1">
-                <span className="bg-sky-900/90 text-cyan-300 font-extrabold text-xs px-2.5 py-1 rounded-md shadow-sm">
+              <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
+                <span className="bg-slate-900/90 text-cyan-300 font-extrabold text-xs px-2.5 py-1 rounded-md shadow-sm border border-slate-800/60 backdrop-blur-xs">
                   {model.code}
                 </span>
-                {model.solariumWidth && (
-                  <span className="bg-amber-500 text-slate-900 font-bold text-[10px] px-2 py-0.5 rounded shadow-xs">
-                    Solarium {model.solariumWidth}m
+                {model.line === 'mini' ? (
+                  <span className="bg-violet-600 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow-xs">
+                    Mini Piscina
+                  </span>
+                ) : model.line === 'solarium' ? (
+                  <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded shadow-xs">
+                    {model.solariumWidth ? `Solarium ${model.solariumWidth}m` : 'Línea Solarium'}
+                  </span>
+                ) : (
+                  <span className="bg-sky-600 text-white font-bold text-[10px] px-2 py-0.5 rounded shadow-xs">
+                    Línea Clásica
                   </span>
                 )}
               </div>
               {model.isPopular && (
-                <span className="absolute top-3 right-3 bg-rose-500 text-white font-semibold text-[11px] px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                <span className="absolute top-3 right-3 bg-rose-500 text-white font-semibold text-[11px] px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 z-10">
                   <Sparkles className="w-3 h-3 text-amber-200" />
                   Más Elegido
                 </span>
@@ -259,13 +278,13 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
             {/* Close Button */}
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-full transition-colors z-10"
+              className="absolute top-4 right-4 bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-full transition-colors z-20 shadow-sm"
             >
               <X className="w-5 h-5" />
             </button>
 
-            {/* Banner Header */}
-            <div className="relative h-56 bg-slate-100">
+            {/* Banner Header with Centered Image */}
+            <div className="relative h-64 sm:h-72 bg-gradient-to-b from-slate-900 via-slate-850 to-slate-950 flex items-center justify-center p-4 overflow-hidden border-b border-slate-800">
               <img
                 src={selectedModel.imageUrl}
                 alt={selectedModel.name}
@@ -273,13 +292,18 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80';
                 }}
-                className="w-full h-full object-cover"
+                className="max-h-full max-w-full w-auto h-auto object-contain object-center drop-shadow-md z-0"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-5">
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent p-5 z-10 flex items-end justify-between">
                 <div className="text-white">
-                  <span className="bg-sky-500 text-white font-extrabold text-xs px-2.5 py-0.5 rounded-md inline-block mb-1">
-                    {selectedModel.code}
-                  </span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-sky-500 text-slate-950 font-black text-xs px-2.5 py-0.5 rounded-md inline-block">
+                      {selectedModel.code}
+                    </span>
+                    <span className="bg-slate-800/90 text-cyan-300 text-[11px] font-bold px-2 py-0.5 rounded border border-slate-700">
+                      {selectedModel.line === 'mini' ? 'Mini Piscina / Hidromasaje' : selectedModel.line === 'solarium' ? 'Línea Solárium' : 'Línea Clásica'}
+                    </span>
+                  </div>
                   <h3 className="text-2xl font-black">{selectedModel.name}</h3>
                   <p className="text-sky-200 text-xs mt-0.5">{selectedModel.description}</p>
                 </div>

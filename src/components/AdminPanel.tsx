@@ -1302,17 +1302,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                       return (
                         <div key={m.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between gap-3 text-xs">
                           <div className="flex gap-3 items-start">
-                            <img
-                              src={m.imageUrl}
-                              alt={m.name}
-                              referrerPolicy="no-referrer"
-                              className="w-16 h-16 object-cover rounded-xl border border-slate-800 shrink-0 bg-slate-900"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80';
-                              }}
-                            />
+                            <div className="w-20 h-20 bg-slate-900/90 rounded-xl border border-slate-800 shrink-0 flex items-center justify-center p-1 overflow-hidden">
+                              <img
+                                src={m.imageUrl}
+                                alt={m.name}
+                                referrerPolicy="no-referrer"
+                                className="max-h-full max-w-full w-auto h-auto object-contain object-center drop-shadow-sm"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80';
+                                }}
+                              />
+                            </div>
                             <div className="space-y-1">
-                              <span className="bg-sky-500/20 text-cyan-300 font-bold px-2 py-0.5 rounded text-[10px]">{m.code}</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="bg-sky-500/20 text-cyan-300 font-bold px-2 py-0.5 rounded text-[10px]">{m.code}</span>
+                                {m.line === 'mini' ? (
+                                  <span className="bg-violet-500/20 text-violet-300 border border-violet-500/30 font-bold px-2 py-0.5 rounded text-[10px]">
+                                    Mini Piscina
+                                  </span>
+                                ) : m.line === 'solarium' ? (
+                                  <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold px-2 py-0.5 rounded text-[10px]">
+                                    Línea Solárium
+                                  </span>
+                                ) : (
+                                  <span className="bg-sky-500/10 text-sky-400 border border-sky-500/20 font-bold px-2 py-0.5 rounded text-[10px]">
+                                    Línea Clásica
+                                  </span>
+                                )}
+                              </div>
                               <h4 className="font-bold text-white text-sm">{m.name}</h4>
                               <p className="text-slate-400">Medidas: {m.length}m x {m.width}m x {m.depth}m ({m.capacity.toLocaleString()}L)</p>
                               <div className="pt-0.5">
@@ -2195,14 +2212,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
               </div>
 
               <div>
-                <label className="block text-slate-400 font-bold mb-1">Línea</label>
+                <label className="block text-slate-400 font-bold mb-1">Línea / Tipo de Piscina</label>
                 <select
                   value={editingModel.line || 'clasica'}
                   onChange={e => setEditingModel({ ...editingModel, line: e.target.value as any })}
-                  className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white"
+                  className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white font-medium focus:ring-2 focus:ring-sky-500"
                 >
-                  <option value="clasica">Línea Clásica</option>
-                  <option value="solarium">Línea Solarium</option>
+                  <option value="clasica">🏊 Línea Clásica (Rectangular)</option>
+                  <option value="solarium">☀️ Línea Solárium (Solárium Húmedo)</option>
+                  <option value="mini">🛁 Mini Piscina (Compacta / Hidromasaje / Spa)</option>
                 </select>
               </div>
             </div>
