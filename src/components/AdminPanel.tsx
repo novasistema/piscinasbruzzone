@@ -78,6 +78,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
   // Modal forms states
   const [isAddingModel, setIsAddingModel] = useState(false);
   const [editingModel, setEditingModel] = useState<Partial<PoolModel> | null>(null);
+  const [newIncludeInput, setNewIncludeInput] = useState('');
+  const [newMaterialInput, setNewMaterialInput] = useState('');
 
   const [isAddingAcc, setIsAddingAcc] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Partial<Accessory> | null>(null);
@@ -553,40 +555,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
     e.preventDefault();
     if (!editingModel) return;
 
+    const cleanModel: PoolModel = {
+      id: editingModel.id || ('mod-' + Date.now()),
+      code: (editingModel.code || ('C' + Math.floor(1000 + Math.random() * 8000))).toUpperCase().trim(),
+      name: editingModel.name || 'Nuevo Modelo de Piscina',
+      line: editingModel.line || 'clasica',
+      length: Number(editingModel.length) || 5.0,
+      width: Number(editingModel.width) || 3.0,
+      depth: Number(editingModel.depth) || 1.4,
+      capacity: Number(editingModel.capacity) || Math.round((Number(editingModel.length) || 5) * (Number(editingModel.width) || 3) * (Number(editingModel.depth) || 1.4) * 850),
+      solariumWidth: editingModel.solariumWidth ? Number(editingModel.solariumWidth) : undefined,
+      costPrice: Number(editingModel.costPrice) || 3000000,
+      profitMargin: Number(editingModel.profitMargin) || 40,
+      price: Number(editingModel.price) || 4200000,
+      imageUrl: editingModel.imageUrl || 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
+      description: editingModel.description || 'Piscina de fibra de vidrio de alta resistencia con protección UV y acabado suave.',
+      includes: Array.isArray(editingModel.includes) && editingModel.includes.length > 0
+        ? editingModel.includes
+        : ['Equipo de filtrado VULCANO completo (Bomba + Filtro)', 'Skimmer y retornos orientables', 'Losetas perimetrales atérmicas y antideslizantes'],
+      clientMaterials: Array.isArray(editingModel.clientMaterials) && editingModel.clientMaterials.length > 0
+        ? editingModel.clientMaterials
+        : ['10 bolsas de cemento', '2 bolsas de hercal', '1.5 m³ de arena gruesa', 'Agua para llenado'],
+      isPopular: Boolean(editingModel.isPopular),
+      warrantyYears: editingModel.warrantyYears ? Number(editingModel.warrantyYears) : 5
+    };
+
     let updatedModels = [...models];
     if (editingModel.id) {
-      updatedModels = updatedModels.map(m => m.id === editingModel.id ? { ...m, ...editingModel } as PoolModel : m);
+      updatedModels = updatedModels.map(m => m.id === cleanModel.id ? cleanModel : m);
       try {
-        await fetch(`/api/models/${editingModel.id}`, {
+        await fetch(`/api/models/${cleanModel.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editingModel)
+          body: JSON.stringify(cleanModel)
         });
       } catch (err) { console.error('API update error:', err); }
     } else {
-      const newM: PoolModel = {
-        id: 'mod-' + Date.now(),
-        code: editingModel.code || ('C' + Math.floor(1000 + Math.random() * 8000)),
-        name: editingModel.name || 'Nuevo Modelo de Piscina',
-        line: editingModel.line || 'clasica',
-        length: Number(editingModel.length) || 5.0,
-        width: Number(editingModel.width) || 3.0,
-        depth: Number(editingModel.depth) || 1.4,
-        capacity: Number(editingModel.capacity) || 18000,
-        costPrice: Number(editingModel.costPrice) || 3000000,
-        profitMargin: Number(editingModel.profitMargin) || 40,
-        price: Number(editingModel.price) || 4200000,
-        imageUrl: editingModel.imageUrl || 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
-        includes: editingModel.includes || ['Equipo Vulcano Completo'],
-        clientMaterials: editingModel.clientMaterials || ['12 bolsas de cemento', '2 m3 de arena'],
-        description: editingModel.description || 'Piscina de fibra de vidrio de alta resistencia.'
-      };
-      updatedModels = [newM, ...updatedModels];
+      updatedModels = [cleanModel, ...updatedModels];
       try {
         await fetch('/api/models', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newM)
+          body: JSON.stringify(cleanModel)
         });
       } catch (err) { console.error('API create error:', err); }
     }
@@ -596,6 +606,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
     syncDataToCloud({ models: updatedModels });
     setIsAddingModel(false);
     setEditingModel(null);
+    setNewIncludeInput('');
+    setNewMaterialInput('');
     loadAllAdminData();
   };
 
@@ -1280,9 +1292,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                             profitMargin: defaultMargin,
                             price: defaultPrice,
                             imageUrl: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
-                            includes: ['Equipo Vulcano Completo'],
-                            clientMaterials: ['12 bolsas cemento', '2 m3 arena']
+                            description: 'Piscina de fibra de vidrio de alta resistencia con acabado atérmico y máxima durabilidad.',
+                            includes: [
+                              'Equipo de filtrado VULCANO completo (Bomba + Filtro)',
+                              'Skimmer y retornos orientables',
+                              'Losetas perimetrales atérmicas y antideslizantes',
+                              'Casilla de fibra reforzada con tapa'
+                            ],
+                            clientMaterials: [
+                              '10 bolsas de cemento',
+                              '2 bolsas de hercal',
+                              '1.5 m³ de arena gruesa',
+                              'Agua para llenado de piscina'
+                            ],
+                            warrantyYears: 5,
+                            isPopular: false
                           });
+                          setNewIncludeInput('');
+                          setNewMaterialInput('');
                           setIsAddingModel(true);
                         }}
                         className="bg-sky-600 hover:bg-sky-500 text-white font-black px-3.5 py-2 rounded-xl text-xs flex items-center gap-1"
@@ -1329,9 +1356,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                                     Línea Clásica
                                   </span>
                                 )}
+                                {m.isPopular && (
+                                  <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold px-1.5 py-0.2 rounded text-[9px]">
+                                    ★ Más Elegido
+                                  </span>
+                                )}
                               </div>
                               <h4 className="font-bold text-white text-sm">{m.name}</h4>
                               <p className="text-slate-400">Medidas: {m.length}m x {m.width}m x {m.depth}m ({m.capacity.toLocaleString()}L)</p>
+                              
+                              {/* Includes and Details quick chips */}
+                              <div className="flex items-center gap-2 flex-wrap pt-0.5 text-[10px]">
+                                <span className="text-cyan-400 bg-cyan-950/40 border border-cyan-800/40 px-1.5 py-0.5 rounded">
+                                  ✨ {m.includes?.length || 0} adicionales incluidos
+                                </span>
+                                <span className="text-amber-300 bg-amber-950/40 border border-amber-800/40 px-1.5 py-0.5 rounded">
+                                  🛡️ {m.warrantyYears || 5} años garantía
+                                </span>
+                              </div>
+
                               <div className="pt-0.5">
                                 <p className="text-emerald-400 font-black text-sm">{formatCurrency(m.price)}</p>
                                 <p className="text-[10px] text-slate-400">
@@ -1347,8 +1390,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
                                 setEditingModel({
                                   ...m,
                                   costPrice: cost,
-                                  profitMargin: margin
+                                  profitMargin: margin,
+                                  includes: m.includes || [],
+                                  clientMaterials: m.clientMaterials || []
                                 });
+                                setNewIncludeInput('');
+                                setNewMaterialInput('');
                                 setIsAddingModel(true);
                               }}
                               className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-xl flex items-center gap-1 text-[11px]"
@@ -2195,172 +2242,546 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
 
       {/* Add / Edit Pool Model Modal */}
       {isAddingModel && editingModel && (
-        <div className="fixed inset-0 z-60 bg-black/80 flex items-center justify-center p-4 overflow-y-auto">
-          <form onSubmit={handleSaveModel} className="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 max-w-lg w-full space-y-3 text-xs">
-            <h3 className="text-base font-black">Guardar / Modificar Modelo de Piscina</h3>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Código (Ej: C4000)</label>
-                <input
-                  type="text"
-                  required
-                  value={editingModel.code || ''}
-                  onChange={e => setEditingModel({ ...editingModel, code: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Línea / Tipo de Piscina</label>
-                <select
-                  value={editingModel.line || 'clasica'}
-                  onChange={e => setEditingModel({ ...editingModel, line: e.target.value as any })}
-                  className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white font-medium focus:ring-2 focus:ring-sky-500"
-                >
-                  <option value="clasica">🏊 Línea Clásica (Rectangular)</option>
-                  <option value="solarium">☀️ Línea Solárium (Solárium Húmedo)</option>
-                  <option value="mini">🛁 Mini Piscina (Compacta / Hidromasaje / Spa)</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-400 font-bold mb-1">Nombre Comercial</label>
-              <input
-                type="text"
-                required
-                value={editingModel.name || ''}
-                onChange={e => setEditingModel({ ...editingModel, name: e.target.value })}
-                className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700"
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Largo (m)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  required
-                  value={editingModel.length || 0}
-                  onChange={e => setEditingModel({ ...editingModel, length: Number(e.target.value) })}
-                  className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Ancho (m)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  required
-                  value={editingModel.width || 0}
-                  onChange={e => setEditingModel({ ...editingModel, width: Number(e.target.value) })}
-                  className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 font-bold mb-1">Profundidad (m)</label>
-                <input
-                  type="number"
-                  step="0.05"
-                  required
-                  value={editingModel.depth || 1.4}
-                  onChange={e => setEditingModel({ ...editingModel, depth: Number(e.target.value) })}
-                  className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700"
-                />
-              </div>
-            </div>
-
-            {/* Estructura de Costos y Ganancia */}
-            <div className="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
-              <div className="flex items-center justify-between text-xs font-bold text-sky-400">
-                <span className="flex items-center gap-1.5">
-                  <DollarSign className="w-4 h-4 text-emerald-400" />
-                  <span>Calculadora de Precio & Ganancia</span>
-                </span>
-                <span className="text-[10px] text-slate-400 font-normal">Cálculo en vivo</span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-slate-300 font-bold mb-1 text-[11px]">Precio Costo (ARS)</label>
-                  <input
-                    type="number"
-                    placeholder="Ej: 2750000"
-                    value={editingModel.costPrice ?? ''}
-                    onChange={e => handleModelCostChange(Number(e.target.value))}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-semibold text-xs focus:ring-2 focus:ring-sky-500"
-                  />
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <form
+            onSubmit={handleSaveModel}
+            className="bg-slate-900 border border-slate-700/80 text-white rounded-3xl p-5 sm:p-6 max-w-2xl w-full my-auto shadow-2xl flex flex-col max-h-[92vh] text-xs"
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3.5 mb-3.5 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                  <Package className="w-4 h-4" />
                 </div>
-
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1 text-[11px]">% Ganancia</label>
-                  <div className="relative">
+                  <h3 className="text-sm sm:text-base font-black text-white">
+                    {editingModel.id ? 'Editar Modelo de Piscina' : 'Crear Nuevo Modelo de Piscina'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Configurá especificaciones, descripción, adicionales incluidos y materiales de obra.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingModel(false);
+                  setEditingModel(null);
+                }}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Form Body */}
+            <div className="overflow-y-auto pr-1 sm:pr-2 space-y-4 flex-1 custom-scrollbar">
+              
+              {/* Sección 1: Identificación y Línea */}
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <span className="text-sky-400 font-extrabold text-[11px] uppercase tracking-wider block">
+                  1. Identificación y Línea de Producto
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Código del Modelo</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: C5000 / S6000 / M280"
+                      value={editingModel.code || ''}
+                      onChange={e => setEditingModel({ ...editingModel, code: e.target.value.toUpperCase() })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono font-bold focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Línea / Tipo de Piscina</label>
+                    <select
+                      value={editingModel.line || 'clasica'}
+                      onChange={e => setEditingModel({ ...editingModel, line: e.target.value as any })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-medium focus:ring-2 focus:ring-sky-500"
+                    >
+                      <option value="clasica">🏊 Línea Clásica (Rectangular)</option>
+                      <option value="solarium">☀️ Línea Solárium (Solárium Húmedo)</option>
+                      <option value="mini">🛁 Mini Piscina (Compacta / Spa / Hidro)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Años de Garantía</label>
                     <input
                       type="number"
-                      step="1"
-                      placeholder="Ej: 40"
-                      value={editingModel.profitMargin ?? ''}
-                      onChange={e => handleModelMarginChange(Number(e.target.value))}
-                      className="w-full p-2.5 pr-6 rounded-xl bg-slate-900 border border-slate-700 text-amber-400 font-bold text-xs focus:ring-2 focus:ring-amber-500"
+                      min="1"
+                      max="30"
+                      placeholder="Ej: 5 o 10"
+                      value={editingModel.warrantyYears ?? 5}
+                      onChange={e => setEditingModel({ ...editingModel, warrantyYears: Number(e.target.value) })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-amber-300 font-bold focus:ring-2 focus:ring-amber-500"
                     />
-                    <span className="absolute right-2.5 top-2.5 text-slate-400 font-bold text-xs">%</span>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-slate-300 font-bold mb-1 text-[11px]">Precio Venta (ARS)</label>
-                  <input
-                    type="number"
-                    required
-                    value={editingModel.price || 0}
-                    onChange={e => handleModelSalePriceChange(Number(e.target.value))}
-                    className="w-full p-2.5 rounded-xl bg-slate-900 border border-emerald-500/50 text-emerald-400 font-black text-xs focus:ring-2 focus:ring-emerald-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                  <div className="sm:col-span-2">
+                    <label className="block text-slate-300 font-bold mb-1">Nombre Comercial de la Piscina</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ej: Piscina Clásica C5000 con Escalera Romana"
+                      value={editingModel.name || ''}
+                      onChange={e => setEditingModel({ ...editingModel, name: e.target.value })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-semibold focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-900 rounded-xl border border-slate-800">
+                    <input
+                      type="checkbox"
+                      id="modelIsPopular"
+                      checked={Boolean(editingModel.isPopular)}
+                      onChange={e => setEditingModel({ ...editingModel, isPopular: e.target.checked })}
+                      className="w-4 h-4 text-sky-600 bg-slate-800 border-slate-700 rounded focus:ring-sky-500 cursor-pointer"
+                    />
+                    <label htmlFor="modelIsPopular" className="text-slate-300 font-semibold cursor-pointer select-none text-[11px]">
+                      🌟 Destacar como 'Más Elegido'
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              {/* Resumen de Ganancia Neta */}
-              <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                <span className="text-slate-400 font-medium">Ganancia Neta Estimada:</span>
-                <div className="text-right">
-                  <span className="font-black text-emerald-400 text-xs">
-                    {formatCurrency((editingModel.price || 0) - (editingModel.costPrice || 0))}
+              {/* Sección 2: Dimensiones y Capacidad */}
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sky-400 font-extrabold text-[11px] uppercase tracking-wider">
+                    2. Medidas y Capacidad
                   </span>
-                  {editingModel.costPrice && editingModel.costPrice > 0 ? (
-                    <span className="ml-1.5 bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                      +{editingModel.profitMargin ?? Math.round((((editingModel.price || 0) - editingModel.costPrice) / editingModel.costPrice) * 100)}%
-                    </span>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const l = Number(editingModel.length) || 5;
+                      const w = Number(editingModel.width) || 3;
+                      const d = Number(editingModel.depth) || 1.4;
+                      const factor = editingModel.line === 'mini' ? 800 : editingModel.line === 'solarium' ? 820 : 850;
+                      const calcLitros = Math.round(l * w * d * factor);
+                      setEditingModel({ ...editingModel, capacity: calcLitros });
+                    }}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-800/50 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    <span>⚡ Auto-calcular Capacidad</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Largo (m)</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      required
+                      value={editingModel.length ?? ''}
+                      onChange={e => setEditingModel({ ...editingModel, length: Number(e.target.value) })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 font-bold text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Ancho (m)</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      required
+                      value={editingModel.width ?? ''}
+                      onChange={e => setEditingModel({ ...editingModel, width: Number(e.target.value) })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 font-bold text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Profundidad (m)</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      required
+                      value={editingModel.depth ?? ''}
+                      onChange={e => setEditingModel({ ...editingModel, depth: Number(e.target.value) })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 font-bold text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Capacidad (Litros)</label>
+                    <input
+                      type="number"
+                      step="100"
+                      required
+                      placeholder="Ej: 18000"
+                      value={editingModel.capacity ?? ''}
+                      onChange={e => setEditingModel({ ...editingModel, capacity: Number(e.target.value) })}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 font-bold text-cyan-400"
+                    />
+                  </div>
+                </div>
+
+                {editingModel.line === 'solarium' && (
+                  <div>
+                    <label className="block text-slate-400 font-bold mb-1">Ancho del Solárium Húmedo / Playa (m)</label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      placeholder="Ej: 1.20"
+                      value={editingModel.solariumWidth ?? ''}
+                      onChange={e => setEditingModel({ ...editingModel, solariumWidth: Number(e.target.value) })}
+                      className="w-full sm:w-1/2 p-2.5 rounded-xl bg-slate-900 border border-slate-700 font-bold text-amber-300"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Sección 3: Descripción del Modelo */}
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-sky-400 font-extrabold text-[11px] uppercase tracking-wider block">
+                  3. Descripción Comercial y Detalles
+                </span>
+                <p className="text-[11px] text-slate-400">
+                  Describí las sensaciones, distribución de bancos/escalones, formato o aplicaciones ideales de este modelo.
+                </p>
+                <textarea
+                  rows={3}
+                  placeholder="Ej: Piscina de líneas puras y modernas con banco perimetral para relax, ideal para patios familiares y jardines medianos..."
+                  value={editingModel.description || ''}
+                  onChange={e => setEditingModel({ ...editingModel, description: e.target.value })}
+                  className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 text-xs"
+                />
+              </div>
+
+              {/* Sección 4: Equipamiento Incluido & Adicionales de Serie */}
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sky-400 font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>4. Adicionales y Equipamiento Incluido de Fábrica ({editingModel.includes?.length || 0})</span>
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-400">
+                  Todo lo que el cliente recibe con este modelo (equipamiento de filtrado, losetas, casillas, etc.).
+                </p>
+
+                {/* Chips de adicionales agregados */}
+                <div className="flex flex-wrap gap-1.5">
+                  {editingModel.includes && editingModel.includes.length > 0 ? (
+                    editingModel.includes.map((inc, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 bg-sky-950/60 border border-sky-600/40 text-sky-200 px-2.5 py-1 rounded-xl text-[11px] font-medium group"
+                      >
+                        <span>✓ {inc}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newInc = editingModel.includes?.filter((_, i) => i !== idx) || [];
+                            setEditingModel({ ...editingModel, includes: newInc });
+                          }}
+                          className="text-sky-400 hover:text-rose-400 transition-colors ml-1"
+                          title="Eliminar este adicional"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-500 italic text-[11px]">No hay adicionales agregados aún.</span>
+                  )}
+                </div>
+
+                {/* Input para agregar nuevo adicional */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Escribí un adicional (ej: Luces LED RGB con control)..."
+                    value={newIncludeInput}
+                    onChange={e => setNewIncludeInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newIncludeInput.trim()) {
+                          const current = editingModel.includes || [];
+                          setEditingModel({ ...editingModel, includes: [...current, newIncludeInput.trim()] });
+                          setNewIncludeInput('');
+                        }
+                      }
+                    }}
+                    className="flex-1 p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:ring-2 focus:ring-sky-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newIncludeInput.trim()) {
+                        const current = editingModel.includes || [];
+                        setEditingModel({ ...editingModel, includes: [...current, newIncludeInput.trim()] });
+                        setNewIncludeInput('');
+                      }
+                    }}
+                    className="bg-sky-600 hover:bg-sky-500 text-white font-bold px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agregar</span>
+                  </button>
+                </div>
+
+                {/* Sugerencias rápidas con 1 clic */}
+                <div className="pt-1">
+                  <span className="text-[10px] text-slate-400 font-semibold block mb-1.5">⚡ Sugerencias rápidas de fábrica:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Equipo Vulcano Completo (Bomba + Filtro)',
+                      'Skimmer y 2 Retornos Orientables',
+                      'Losetas Atérmicas y Antideslizantes perimetrales',
+                      'Casilla de Fibra Reforzada con Tapa',
+                      'Banco de Relax e Hidromasaje',
+                      'Solárium Húmedo / Playa Húmeda',
+                      'Luces LED RGB con Control Remoto',
+                      'Kit de Limpieza Vulcano con Barrefondo',
+                      'Garantía Escrita de 5 Años de Fábrica'
+                    ].map((sug, sIdx) => {
+                      const alreadyHas = editingModel.includes?.includes(sug);
+                      return (
+                        <button
+                          key={sIdx}
+                          type="button"
+                          disabled={alreadyHas}
+                          onClick={() => {
+                            const current = editingModel.includes || [];
+                            if (!current.includes(sug)) {
+                              setEditingModel({ ...editingModel, includes: [...current, sug] });
+                            }
+                          }}
+                          className={`text-[10px] px-2 py-1 rounded-lg border transition-all ${
+                            alreadyHas
+                              ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
+                              : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:border-sky-500 hover:text-sky-300 hover:bg-sky-950/30'
+                          }`}
+                        >
+                          + {sug}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
+
+              {/* Sección 5: Materiales de Obra a cargo del Cliente */}
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                <span className="text-sky-400 font-extrabold text-[11px] uppercase tracking-wider block">
+                  5. Materiales de Instalación a cargo del Cliente ({editingModel.clientMaterials?.length || 0})
+                </span>
+
+                <p className="text-[11px] text-slate-400">
+                  Materiales que el cliente debe proveer en obra al momento de la instalación.
+                </p>
+
+                {/* Chips de materiales agregados */}
+                <div className="flex flex-wrap gap-1.5">
+                  {editingModel.clientMaterials && editingModel.clientMaterials.length > 0 ? (
+                    editingModel.clientMaterials.map((mat, mIdx) => (
+                      <span
+                        key={mIdx}
+                        className="inline-flex items-center gap-1.5 bg-amber-950/40 border border-amber-600/40 text-amber-200 px-2.5 py-1 rounded-xl text-[11px] font-medium"
+                      >
+                        <span>📦 {mat}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newMat = editingModel.clientMaterials?.filter((_, i) => i !== mIdx) || [];
+                            setEditingModel({ ...editingModel, clientMaterials: newMat });
+                          }}
+                          className="text-amber-400 hover:text-rose-400 transition-colors ml-1"
+                          title="Eliminar este material"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-500 italic text-[11px]">No hay materiales listados.</span>
+                  )}
+                </div>
+
+                {/* Input para agregar nuevo material */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Escribí un material (ej: 12 bolsas de cemento)..."
+                    value={newMaterialInput}
+                    onChange={e => setNewMaterialInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newMaterialInput.trim()) {
+                          const current = editingModel.clientMaterials || [];
+                          setEditingModel({ ...editingModel, clientMaterials: [...current, newMaterialInput.trim()] });
+                          setNewMaterialInput('');
+                        }
+                      }
+                    }}
+                    className="flex-1 p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:ring-2 focus:ring-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newMaterialInput.trim()) {
+                        const current = editingModel.clientMaterials || [];
+                        setEditingModel({ ...editingModel, clientMaterials: [...current, newMaterialInput.trim()] });
+                        setNewMaterialInput('');
+                      }
+                    }}
+                    className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold px-3.5 py-2.5 rounded-xl text-xs flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Agregar</span>
+                  </button>
+                </div>
+
+                {/* Sugerencias rápidas de materiales */}
+                <div className="pt-1">
+                  <span className="text-[10px] text-slate-400 font-semibold block mb-1.5">⚡ Sugerencias de materiales comunes:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      '10 bolsas de cemento',
+                      '12 bolsas de cemento',
+                      '2 bolsas de hercal',
+                      '1.5 m³ de arena gruesa',
+                      '2 m³ de arena gruesa',
+                      'Agua para llenado de piscina',
+                      '10 kg de pastina para losetas',
+                      '2 mallas sima de 15x15'
+                    ].map((matSug, mIdx) => {
+                      const alreadyHas = editingModel.clientMaterials?.includes(matSug);
+                      return (
+                        <button
+                          key={mIdx}
+                          type="button"
+                          disabled={alreadyHas}
+                          onClick={() => {
+                            const current = editingModel.clientMaterials || [];
+                            if (!current.includes(matSug)) {
+                              setEditingModel({ ...editingModel, clientMaterials: [...current, matSug] });
+                            }
+                          }}
+                          className={`text-[10px] px-2 py-1 rounded-lg border transition-all ${
+                            alreadyHas
+                              ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
+                              : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:border-amber-500 hover:text-amber-300 hover:bg-amber-950/30'
+                          }`}
+                        >
+                          + {matSug}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 6: Estructura de Costos y Ganancia */}
+              <div className="bg-slate-950/90 p-3.5 rounded-2xl border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between text-xs font-bold text-sky-400">
+                  <span className="flex items-center gap-1.5">
+                    <DollarSign className="w-4 h-4 text-emerald-400" />
+                    <span>6. Calculadora de Precio & Margen de Ganancia</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal">Cálculo dinámico en vivo</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1 text-[11px]">Precio Costo Fábrica (ARS)</label>
+                    <input
+                      type="number"
+                      placeholder="Ej: 2750000"
+                      value={editingModel.costPrice ?? ''}
+                      onChange={e => handleModelCostChange(Number(e.target.value))}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-semibold text-xs focus:ring-2 focus:ring-sky-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1 text-[11px]">% Margen de Ganancia</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="1"
+                        placeholder="Ej: 40"
+                        value={editingModel.profitMargin ?? ''}
+                        onChange={e => handleModelMarginChange(Number(e.target.value))}
+                        className="w-full p-2.5 pr-6 rounded-xl bg-slate-900 border border-slate-700 text-amber-400 font-bold text-xs focus:ring-2 focus:ring-amber-500"
+                      />
+                      <span className="absolute right-2.5 top-2.5 text-slate-400 font-bold text-xs">%</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1 text-[11px]">Precio Venta Final (ARS)</label>
+                    <input
+                      type="number"
+                      required
+                      value={editingModel.price || 0}
+                      onChange={e => handleModelSalePriceChange(Number(e.target.value))}
+                      className="w-full p-2.5 rounded-xl bg-slate-900 border border-emerald-500/50 text-emerald-400 font-black text-xs focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Resumen de Ganancia Neta */}
+                <div className="bg-slate-900/90 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
+                  <span className="text-slate-400 font-medium">Ganancia Neta Estimada por Casco:</span>
+                  <div className="text-right">
+                    <span className="font-black text-emerald-400 text-xs">
+                      {formatCurrency((editingModel.price || 0) - (editingModel.costPrice || 0))}
+                    </span>
+                    {editingModel.costPrice && editingModel.costPrice > 0 ? (
+                      <span className="ml-1.5 bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                        +{editingModel.profitMargin ?? Math.round((((editingModel.price || 0) - editingModel.costPrice) / editingModel.costPrice) * 100)}%
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 7: Foto del Modelo */}
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-sky-400 font-extrabold text-[11px] uppercase tracking-wider block">
+                  7. Foto del Modelo de Piscina
+                </span>
+                <ImageUploader
+                  value={editingModel.imageUrl || ''}
+                  onChange={url => setEditingModel({ ...editingModel, imageUrl: url })}
+                  label="Imagen del Casco de Piscina"
+                  helpText="Seleccioná una imagen desde tu computadora o ingresá una URL."
+                />
+              </div>
+
             </div>
 
-            <div>
-              <ImageUploader
-                value={editingModel.imageUrl || ''}
-                onChange={url => setEditingModel({ ...editingModel, imageUrl: url })}
-                label="Foto del Modelo de Piscina"
-                helpText="Seleccioná un archivo desde tu PC o ingresá una URL."
-              />
-            </div>
-
-            <div className="flex gap-2 pt-2">
+            {/* Modal Footer Buttons */}
+            <div className="flex gap-2.5 pt-3.5 mt-3 border-t border-slate-800 shrink-0">
               <button
                 type="button"
-                onClick={() => setIsAddingModel(false)}
-                className="w-1/2 py-2.5 rounded-xl border border-slate-700 text-slate-300 font-bold"
+                onClick={() => {
+                  setIsAddingModel(false);
+                  setEditingModel(null);
+                }}
+                className="w-1/2 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 font-bold transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="w-1/2 bg-sky-600 hover:bg-sky-500 text-white font-black py-2.5 rounded-xl"
+                className="w-1/2 bg-sky-600 hover:bg-sky-500 text-white font-black py-2.5 rounded-xl shadow-lg shadow-sky-600/20 transition-all flex items-center justify-center gap-1.5"
               >
-                Guardar Modelo
+                <Check className="w-4 h-4" />
+                <span>Guardar Modelo</span>
               </button>
             </div>
           </form>

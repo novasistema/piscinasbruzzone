@@ -339,36 +339,40 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
               </div>
 
               {/* Includes */}
-              <div>
-                <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider mb-2 flex items-center gap-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Equipamiento Incluido en la Compra
-                </h4>
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-700">
-                  {selectedModel.includes.map((inc, idx) => (
-                    <li key={idx} className="flex items-start gap-2 bg-slate-50 p-2 rounded-xl">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                      <span>{inc}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {selectedModel.includes && selectedModel.includes.length > 0 && (
+                <div>
+                  <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider mb-2 flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Equipamiento & Adicionales Incluidos de Serie
+                  </h4>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-700">
+                    {selectedModel.includes.map((inc, idx) => (
+                      <li key={idx} className="flex items-start gap-2 bg-slate-50 p-2 rounded-xl">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{inc}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Client Materials Required */}
-              <div>
-                <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider mb-2 flex items-center gap-1">
-                  <Droplets className="w-4 h-4 text-amber-500" />
-                  Materiales Necesarios (A cargo del cliente)
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-amber-50/50 p-3 rounded-2xl border border-amber-200/60">
-                  {selectedModel.clientMaterials.map((mat, idx) => (
-                    <div key={idx} className="flex items-center gap-1.5 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                      <span>{mat}</span>
-                    </div>
-                  ))}
+              {selectedModel.clientMaterials && selectedModel.clientMaterials.length > 0 && (
+                <div>
+                  <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-wider mb-2 flex items-center gap-1">
+                    <Droplets className="w-4 h-4 text-amber-500" />
+                    Materiales Necesarios (A cargo del cliente en obra)
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-amber-50/50 p-3 rounded-2xl border border-amber-200/60">
+                    {selectedModel.clientMaterials.map((mat, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        <span>{mat}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Add Seasonal Accessories to Quote */}
               <div>

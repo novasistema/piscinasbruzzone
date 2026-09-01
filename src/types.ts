@@ -16,6 +16,7 @@ export interface PoolModel {
   clientMaterials: string[];
   description?: string;
   isPopular?: boolean;
+  warrantyYears?: number;
 }
 
 export interface Accessory {

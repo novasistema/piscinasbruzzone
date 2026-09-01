@@ -270,6 +270,12 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
       message += `• *Dimensiones:* ${selectedModel.length}m largo x ${selectedModel.width}m ancho x ${selectedModel.depth}m prof.\n`;
       message += `• *Capacidad:* ${selectedModel.capacity.toLocaleString('es-AR')} Litros\n`;
       message += `• *Línea de Diseño:* ${selectedModel.line === 'mini' ? 'Mini Piscina / Hidromasaje' : selectedModel.line === 'solarium' ? 'Solárium Húmedo / Playa incorporada' : 'Clásica Rectangular'}\n`;
+      if (selectedModel.description) {
+        message += `• *Detalle:* ${selectedModel.description}\n`;
+      }
+      if (selectedModel.includes && selectedModel.includes.length > 0) {
+        message += `• *Equipamiento de Serie Incluido:* ${selectedModel.includes.join(', ')}\n`;
+      }
       if (includeInstallation) {
         message += `• *Modalidad:* Llave en mano (Casco reforzado + Equipo de filtrado Vulcano + Losetas perimetrales atérmicas + Excavación e Instalación).\n`;
       }
@@ -671,32 +677,58 @@ export const AdminQuoteBuilder: React.FC<AdminQuoteBuilderProps> = ({
               })}
             </div>
 
-            {/* Custom Model Price Override */}
+            {/* Custom Model Price Override & Details Preview */}
             {selectedModel && (
-              <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <span className="font-bold text-white block">Piscina Seleccionada: {selectedModel.name} ({selectedModel.code})</span>
-                  <span className="text-[10px] text-slate-400">¿Deseas ajustar el precio base del casco para esta cotización?</span>
+              <div className="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="font-bold text-white text-sm block">Piscina Seleccionada: {selectedModel.name} ({selectedModel.code})</span>
+                    <span className="text-[10px] text-slate-400">¿Deseas ajustar el precio base del casco para esta cotización?</span>
+                  </div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <span className="text-slate-400 text-xs font-bold">$</span>
+                    <input
+                      type="number"
+                      placeholder={selectedModel.price.toString()}
+                      value={customModelPrice}
+                      onChange={e => setCustomModelPrice(e.target.value)}
+                      className="w-36 p-2 rounded-xl bg-slate-950 border border-slate-700 text-emerald-400 font-bold text-xs outline-none"
+                    />
+                    {customModelPrice && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomModelPrice('')}
+                        className="text-slate-500 hover:text-rose-400 text-[10px] underline"
+                      >
+                        Restablecer
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <span className="text-slate-400 text-xs font-bold">$</span>
-                  <input
-                    type="number"
-                    placeholder={selectedModel.price.toString()}
-                    value={customModelPrice}
-                    onChange={e => setCustomModelPrice(e.target.value)}
-                    className="w-36 p-2 rounded-xl bg-slate-950 border border-slate-700 text-emerald-400 font-bold text-xs outline-none"
-                  />
-                  {customModelPrice && (
-                    <button
-                      type="button"
-                      onClick={() => setCustomModelPrice('')}
-                      className="text-slate-500 hover:text-rose-400 text-[10px] underline"
-                    >
-                      Restablecer
-                    </button>
-                  )}
-                </div>
+
+                {/* Model Description and Inclusions */}
+                {(selectedModel.description || (selectedModel.includes && selectedModel.includes.length > 0)) && (
+                  <div className="pt-2 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-2.5 text-[11px]">
+                    {selectedModel.description && (
+                      <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/70">
+                        <span className="text-slate-400 font-bold block mb-0.5 text-[10px] uppercase tracking-wide">📝 Descripción del Modelo:</span>
+                        <p className="text-slate-300 italic">{selectedModel.description}</p>
+                      </div>
+                    )}
+                    {selectedModel.includes && selectedModel.includes.length > 0 && (
+                      <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/70">
+                        <span className="text-sky-400 font-bold block mb-1 text-[10px] uppercase tracking-wide">✨ Adicionales / Equipamiento de Serie:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedModel.includes.map((inc, i) => (
+                            <span key={i} className="bg-sky-950/50 text-sky-200 border border-sky-800/40 px-1.5 py-0.5 rounded text-[10px]">
+                              ✓ {inc}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
