@@ -10,6 +10,7 @@ export interface PoolModel {
   costPrice?: number; // Precio de costo en ARS
   profitMargin?: number; // Porcentaje de ganancia (%)
   price: number; // Precio de venta final público en ARS
+  consultPrice?: boolean; // Activar "Consultar Precio" (oculta monto numérico)
   solariumWidth?: number; // e.g. 0.90m
   imageUrl: string;
   includes: string[];
@@ -26,6 +27,7 @@ export interface Accessory {
   costPrice?: number; // Precio de costo
   profitMargin?: number; // Porcentaje de ganancia (%)
   price: number; // Precio de venta
+  consultPrice?: boolean; // Activar "Consultar Precio" (oculta monto numérico)
   description: string;
   imageUrl: string;
   isSeasonal?: boolean;
@@ -134,6 +136,7 @@ export interface CompanyConfig {
   adminUsername?: string;
   adminPasswordHash?: string;
   popup?: AnnouncementPopup;
+  consultPriceOnly?: boolean; // Activar "Consultar Precio" en todo el catálogo público
 }
 
 export interface MasterUser {

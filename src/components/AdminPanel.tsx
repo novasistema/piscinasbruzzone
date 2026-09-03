@@ -6,7 +6,7 @@ import { Logo } from './Logo';
 import { ImageUploader } from './ImageUploader';
 import { AnnouncementModal } from './AnnouncementModal';
 import { AdminQuoteBuilder } from './AdminQuoteBuilder';
-import { Lock, LogOut, DollarSign, Wrench, Package, Users, Settings, Plus, Trash2, Edit2, CheckCircle2, Phone, Save, Percent, Sparkles, Image, Star, Shield, RefreshCw, X, Megaphone, Eye, Check, Download, UploadCloud, Database, Cloud, KeyRound, CheckCircle, AlertCircle, Calculator, Send } from 'lucide-react';
+import { Lock, LogOut, DollarSign, Wrench, Package, Users, Settings, Plus, Trash2, Edit2, CheckCircle2, Phone, Save, Percent, Sparkles, Image, Star, Shield, RefreshCw, X, Megaphone, Eye, Check, Download, UploadCloud, Database, Cloud, KeyRound, CheckCircle, AlertCircle, Calculator, Send, MessageCircle } from 'lucide-react';
 
 interface AdminPanelProps {
   isOpen: boolean;
@@ -95,6 +95,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isMassPriceOpen, setIsMassPriceOpen] = useState(false);
   const [massModelPercent, setMassModelPercent] = useState<number>(10);
   const [massAccPercent, setMassAccPercent] = useState<number>(10);
+
+  // Quick Inline Pricing & Consultar Precio States
+  const [quickModelPrices, setQuickModelPrices] = useState<Record<string, string>>({});
+  const [quickAccPrices, setQuickAccPrices] = useState<Record<string, string>>({});
+  const [showQuickPriceTable, setShowQuickPriceTable] = useState(false);
 
   // Modal forms states
   const [isAddingModel, setIsAddingModel] = useState(false);
@@ -643,6 +648,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       costPrice: Number(editingModel.costPrice) || 0,
       profitMargin: Number(editingModel.profitMargin) || 0,
       price: Number(editingModel.price) || 0,
+      consultPrice: Boolean(editingModel.consultPrice),
       imageUrl: editingModel.imageUrl || 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
       description: editingModel.description !== undefined ? editingModel.description : '',
       includes: Array.isArray(editingModel.includes) ? editingModel.includes : [],
@@ -705,6 +711,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       costPrice: Number(editingAcc.costPrice) || 0,
       profitMargin: Number(editingAcc.profitMargin) || 0,
       price: Number(editingAcc.price) || 0,
+      consultPrice: Boolean(editingAcc.consultPrice),
       description: editingAcc.description !== undefined ? editingAcc.description : '',
       imageUrl: editingAcc.imageUrl || 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80',
       isSeasonal: editingAcc.isSeasonal ?? true
@@ -749,6 +756,121 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setIsAddingAcc(false);
     setEditingAcc(null);
     showToast(`✅ Producto "${cleanAcc.name}" guardado exitosamente`);
+  };
+
+  // Quick Inline Price & Consult Price Helpers
+  const handleQuickUpdateModelPrice = async (modelId: string, customPrice?: number, toggleConsult?: boolean) => {
+    const target = models.find(m => m.id === modelId);
+    if (!target) return;
+
+    const rawInput = quickModelPrices[modelId];
+    const newPrice = customPrice !== undefined 
+      ? customPrice 
+      : (rawInput !== undefined && rawInput !== '' ? Number(rawInput) : target.price);
+    const newConsult = toggleConsult !== undefined ? toggleConsult : target.consultPrice;
+
+    const cost = target.costPrice || Math.round(newPrice / 1.4);
+    const margin = cost > 0 ? Math.round(((newPrice - cost) / cost) * 100) : (target.profitMargin || 40);
+
+    const updatedModel: PoolModel = {
+      ...target,
+      price: Math.max(0, newPrice),
+      profitMargin: margin,
+      consultPrice: Boolean(newConsult)
+    };
+
+    const updatedModels = models.map(m => m.id === modelId ? updatedModel : m);
+    setModels(updatedModels);
+    try { localStorage.setItem('bruone_models', JSON.stringify(updatedModels)); } catch (e) {}
+
+    try {
+      await fetch(`/api/models/${target.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedModel)
+      });
+    } catch (err) {
+      console.error('Error saving model price:', err);
+    }
+
+    await syncDataToCloud({ models: updatedModels });
+    onRefreshData();
+
+    // Clear quick price input for this item
+    setQuickModelPrices(prev => {
+      const copy = { ...prev };
+      delete copy[modelId];
+      return copy;
+    });
+
+    showToast(toggleConsult !== undefined 
+      ? (newConsult ? `💬 "Consultar Precio" activado para ${target.name}` : `💰 Precio numérico reactivado para ${target.name}`)
+      : `✅ Precio de "${target.name}" actualizado a ${formatCurrency(newPrice)}`);
+  };
+
+  const handleQuickUpdateAccessoryPrice = async (accId: string, customPrice?: number, toggleConsult?: boolean) => {
+    const target = accessories.find(a => a.id === accId);
+    if (!target) return;
+
+    const rawInput = quickAccPrices[accId];
+    const newPrice = customPrice !== undefined 
+      ? customPrice 
+      : (rawInput !== undefined && rawInput !== '' ? Number(rawInput) : target.price);
+    const newConsult = toggleConsult !== undefined ? toggleConsult : target.consultPrice;
+
+    const cost = target.costPrice || Math.round(newPrice / 1.4);
+    const margin = cost > 0 ? Math.round(((newPrice - cost) / cost) * 100) : (target.profitMargin || 40);
+
+    const updatedAcc: Accessory = {
+      ...target,
+      price: Math.max(0, newPrice),
+      profitMargin: margin,
+      consultPrice: Boolean(newConsult)
+    };
+
+    const updatedAccs = accessories.map(a => a.id === accId ? updatedAcc : a);
+    setAccessories(updatedAccs);
+    try { localStorage.setItem('bruone_accessories', JSON.stringify(updatedAccs)); } catch (e) {}
+
+    try {
+      await fetch(`/api/accessories/${target.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedAcc)
+      });
+    } catch (err) {
+      console.error('Error saving accessory price:', err);
+    }
+
+    await syncDataToCloud({ accessories: updatedAccs });
+    onRefreshData();
+
+    // Clear quick price input for this item
+    setQuickAccPrices(prev => {
+      const copy = { ...prev };
+      delete copy[accId];
+      return copy;
+    });
+
+    showToast(toggleConsult !== undefined 
+      ? (newConsult ? `💬 "Consultar Precio" activado para ${target.name}` : `💰 Precio numérico reactivado para ${target.name}`)
+      : `✅ Precio de "${target.name}" actualizado a ${formatCurrency(newPrice)}`);
+  };
+
+  const handleToggleGlobalConsultPrice = async (enabled: boolean) => {
+    const updatedConfig: CompanyConfig = { ...companySettings, consultPriceOnly: enabled };
+    setCompanySettings(updatedConfig);
+    try { localStorage.setItem('bruone_config', JSON.stringify(updatedConfig)); } catch (e) {}
+    try {
+      await fetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedConfig)
+      });
+    } catch (err) {}
+    await syncDataToCloud({ config: updatedConfig });
+    onRefreshData();
+    showToast(enabled ? '💬 Modo "Consultar Precio" activado para TODO el sitio' : '💰 Precios numéricos activados en el catálogo');
   };
 
   const handleSaveCompanyConfig = async (e: React.FormEvent) => {
@@ -1359,6 +1481,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     className="hidden"
                   />
 
+                  {/* Header Bar */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
                     <div>
                       <h3 className="text-lg font-black text-white">Administración de Modelos de Piscinas</h3>
@@ -1412,6 +1535,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             costPrice: defaultCost,
                             profitMargin: defaultMargin,
                             price: defaultPrice,
+                            consultPrice: false,
                             imageUrl: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
                             description: 'Piscina de fibra de vidrio de alta resistencia con acabado atérmico y máxima durabilidad.',
                             includes: [
@@ -1441,6 +1565,131 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </div>
                   </div>
 
+                  {/* Panel de Control de Precios y Modo Consultar Precio */}
+                  <div className="bg-gradient-to-r from-sky-950/40 via-slate-900 to-indigo-950/40 border border-sky-800/40 p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+                        <MessageCircle className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-white text-sm">Modo "Consultar Precio" Global</span>
+                          {companySettings.consultPriceOnly ? (
+                            <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                              ACTIVADO (Todo el Catálogo)
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-bold">
+                              PRECIOS VISIBLES
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-400">
+                          {companySettings.consultPriceOnly
+                            ? 'Los precios están ocultos en toda la web y los clientes cotizan vía WhatsApp.'
+                            : 'Los precios numéricos están visibles en el catálogo (salvo modelos con consulta individual activa).'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleGlobalConsultPrice(!companySettings.consultPriceOnly)}
+                        className={`px-3.5 py-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
+                          companySettings.consultPriceOnly
+                            ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                        }`}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>{companySettings.consultPriceOnly ? 'Desactivar Modo Consulta' : 'Activar Consulta Global'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickPriceTable(!showQuickPriceTable)}
+                        className={`px-3.5 py-2 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${
+                          showQuickPriceTable
+                            ? 'bg-sky-600 text-white shadow-md'
+                            : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700'
+                        }`}
+                      >
+                        <Calculator className="w-3.5 h-3.5" />
+                        <span>{showQuickPriceTable ? 'Ocultar Edición Rápida' : '⚡ Edición Rápida de Precios'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tabla de Edición Rápida de Precios */}
+                  {showQuickPriceTable && (
+                    <div className="bg-slate-950 p-4 rounded-2xl border border-sky-800/60 shadow-xl space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                        <div>
+                          <h4 className="font-extrabold text-white text-sm flex items-center gap-1.5">
+                            <span>⚡ Tabla de Edición Rápida de Precios ({models.length} Modelos)</span>
+                          </h4>
+                          <p className="text-[11px] text-slate-400">Modificá el precio o activá 'Consultar Precio' directamente sin abrir formularios.</p>
+                        </div>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-800 text-slate-400">
+                              <th className="py-2 px-2">Código</th>
+                              <th className="py-2 px-2">Modelo</th>
+                              <th className="py-2 px-2">Precio Actual</th>
+                              <th className="py-2 px-2">Nuevo Precio (ARS)</th>
+                              <th className="py-2 px-2 text-center">Consultar Precio</th>
+                              <th className="py-2 px-2 text-right">Acción</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {models.map(m => (
+                              <tr key={m.id} className="hover:bg-slate-900/50 transition-colors">
+                                <td className="py-2 px-2 font-mono font-bold text-cyan-300">{m.code}</td>
+                                <td className="py-2 px-2 font-bold text-white max-w-[200px] truncate">{m.name}</td>
+                                <td className="py-2 px-2 font-bold text-emerald-400">{formatCurrency(m.price)}</td>
+                                <td className="py-2 px-2">
+                                  <input
+                                    type="number"
+                                    placeholder={String(m.price)}
+                                    value={quickModelPrices[m.id] ?? ''}
+                                    onChange={e => setQuickModelPrices({ ...quickModelPrices, [m.id]: e.target.value })}
+                                    className="w-32 p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-bold text-xs focus:ring-2 focus:ring-emerald-500"
+                                  />
+                                </td>
+                                <td className="py-2 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickUpdateModelPrice(m.id, undefined, !m.consultPrice)}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors ${
+                                      m.consultPrice
+                                        ? 'bg-sky-500 text-slate-950 font-black border-sky-400'
+                                        : 'bg-slate-900 text-slate-400 hover:text-white border-slate-700'
+                                    }`}
+                                  >
+                                    {m.consultPrice ? '💬 ACTIVADO' : 'Desactivado'}
+                                  </button>
+                                </td>
+                                <td className="py-2 px-2 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickUpdateModelPrice(m.id)}
+                                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black rounded-lg text-xs transition-colors"
+                                  >
+                                    Guardar
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {models.map(m => {
                       const cost = m.costPrice ?? Math.round(m.price / 1.4);
@@ -1448,7 +1697,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       const netProfit = m.price - cost;
 
                       return (
-                        <div key={m.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between gap-3 text-xs">
+                        <div key={m.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between gap-3 text-xs">
                           <div className="flex gap-3 items-start">
                             <div className="w-20 h-20 bg-slate-900/90 rounded-xl border border-slate-800 shrink-0 flex items-center justify-center p-1 overflow-hidden">
                               <img
@@ -1461,7 +1710,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 }}
                               />
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className="bg-sky-500/20 text-cyan-300 font-bold px-2 py-0.5 rounded text-[10px]">{m.code}</span>
                                 {m.line === 'mini' ? (
@@ -1482,8 +1731,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                     ★ Más Elegido
                                   </span>
                                 )}
+                                {m.consultPrice && (
+                                  <span className="bg-sky-500/20 text-sky-300 border border-sky-500/40 font-bold px-1.5 py-0.2 rounded text-[9px] flex items-center gap-0.5">
+                                    <MessageCircle className="w-2.5 h-2.5" />
+                                    <span>Consultar Precio</span>
+                                  </span>
+                                )}
                               </div>
-                              <h4 className="font-bold text-white text-sm">{m.name}</h4>
+                              <h4 className="font-bold text-white text-sm truncate">{m.name}</h4>
                               <p className="text-slate-400">Medidas: {m.length}m x {m.width}m x {m.depth}m ({m.capacity.toLocaleString()}L)</p>
                               
                               {/* Includes and Details quick chips */}
@@ -1503,33 +1758,68 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 </p>
                               </div>
                             </div>
+
+                            <div className="flex flex-col gap-1.5 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingModel({
+                                    ...m,
+                                    costPrice: cost,
+                                    profitMargin: margin,
+                                    consultPrice: Boolean(m.consultPrice),
+                                    includes: m.includes || [],
+                                    clientMaterials: m.clientMaterials || []
+                                  });
+                                  setNewIncludeInput('');
+                                  setNewMaterialInput('');
+                                  setIsAddingModel(true);
+                                }}
+                                className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-xl flex items-center gap-1 text-[11px]"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                <span>Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteModel(m.id)}
+                                className="bg-rose-950/40 hover:bg-rose-900 text-rose-300 p-2 rounded-xl flex items-center gap-1 text-[11px] border border-rose-800/40"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Borrar</span>
+                              </button>
+                            </div>
                           </div>
 
-                          <div className="flex flex-col gap-1.5 shrink-0">
+                          {/* Quick Price Inline Bar */}
+                          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-400 font-bold">Precio ARS:</span>
+                              <input
+                                type="number"
+                                placeholder={String(m.price)}
+                                value={quickModelPrices[m.id] ?? ''}
+                                onChange={e => setQuickModelPrices({ ...quickModelPrices, [m.id]: e.target.value })}
+                                className="w-28 p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-emerald-400 font-black text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleQuickUpdateModelPrice(m.id)}
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black rounded-lg text-xs"
+                              >
+                                Guardar
+                              </button>
+                            </div>
+
                             <button
-                              onClick={() => {
-                                setEditingModel({
-                                  ...m,
-                                  costPrice: cost,
-                                  profitMargin: margin,
-                                  includes: m.includes || [],
-                                  clientMaterials: m.clientMaterials || []
-                                });
-                                setNewIncludeInput('');
-                                setNewMaterialInput('');
-                                setIsAddingModel(true);
-                              }}
-                              className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-xl flex items-center gap-1 text-[11px]"
+                              type="button"
+                              onClick={() => handleQuickUpdateModelPrice(m.id, undefined, !m.consultPrice)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1 ${
+                                m.consultPrice
+                                  ? 'bg-sky-500 text-slate-950 font-black border-sky-400 shadow-sm'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white border-slate-700'
+                              }`}
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Editar</span>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteModel(m.id)}
-                              className="bg-rose-950/40 hover:bg-rose-900 text-rose-300 p-2 rounded-xl flex items-center gap-1 text-[11px] border border-rose-800/40"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Borrar</span>
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>{m.consultPrice ? '💬 Consultar Precio: ON' : '💬 Activar Consulta'}</span>
                             </button>
                           </div>
                         </div>
@@ -1558,6 +1848,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           costPrice: defaultCost,
                           profitMargin: defaultMargin,
                           price: defaultPrice,
+                          consultPrice: false,
                           description: 'Descripción del producto',
                           imageUrl: 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80',
                           isSeasonal: true
@@ -1578,7 +1869,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       const netProfit = acc.price - cost;
 
                       return (
-                        <div key={acc.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex justify-between gap-3 text-xs">
+                        <div key={acc.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between gap-3 text-xs">
                           <div className="flex gap-3 items-start">
                             <img
                               src={acc.imageUrl}
@@ -1589,9 +1880,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80';
                               }}
                             />
-                            <div>
-                              <h4 className="font-bold text-white text-sm">{acc.name}</h4>
-                              <p className="text-slate-400 text-[11px]">{acc.description}</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                <h4 className="font-bold text-white text-sm truncate">{acc.name}</h4>
+                                {acc.consultPrice && (
+                                  <span className="bg-sky-500/20 text-sky-300 border border-sky-500/40 font-bold px-1.5 py-0.2 rounded text-[9px] flex items-center gap-0.5">
+                                    <MessageCircle className="w-2.5 h-2.5" />
+                                    <span>Consultar Precio</span>
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-slate-400 text-[11px] line-clamp-2">{acc.description}</p>
                               <div className="pt-1">
                                 <p className="text-emerald-400 font-black text-sm">{formatCurrency(acc.price)}</p>
                                 <p className="text-[10px] text-slate-400">
@@ -1599,28 +1898,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 </p>
                               </div>
                             </div>
+
+                            <div className="flex flex-col gap-1.5 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setEditingAcc({
+                                    ...acc,
+                                    costPrice: cost,
+                                    profitMargin: margin,
+                                    consultPrice: Boolean(acc.consultPrice)
+                                  });
+                                  setIsAddingAcc(true);
+                                }}
+                                className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-xl h-fit text-[11px] flex items-center gap-1"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                <span>Editar</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAccessory(acc.id)}
+                                className="bg-rose-950/40 hover:bg-rose-900 text-rose-300 p-2 rounded-xl h-fit text-[11px] flex items-center gap-1 border border-rose-800/40"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Borrar</span>
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex flex-col gap-1.5 shrink-0">
+
+                          {/* Quick Price Inline Bar for Accessory */}
+                          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-400 font-bold">Precio ARS:</span>
+                              <input
+                                type="number"
+                                placeholder={String(acc.price)}
+                                value={quickAccPrices[acc.id] ?? ''}
+                                onChange={e => setQuickAccPrices({ ...quickAccPrices, [acc.id]: e.target.value })}
+                                className="w-28 p-1.5 rounded-lg bg-slate-900 border border-slate-700 text-emerald-400 font-black text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleQuickUpdateAccessoryPrice(acc.id)}
+                                className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black rounded-lg text-xs"
+                              >
+                                Guardar
+                              </button>
+                            </div>
+
                             <button
-                              onClick={() => {
-                                setEditingAcc({
-                                  ...acc,
-                                  costPrice: cost,
-                                  profitMargin: margin
-                                });
-                                setIsAddingAcc(true);
-                              }}
-                              className="bg-slate-800 hover:bg-slate-700 text-white p-2 rounded-xl h-fit text-[11px] flex items-center gap-1"
+                              type="button"
+                              onClick={() => handleQuickUpdateAccessoryPrice(acc.id, undefined, !acc.consultPrice)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1 ${
+                                acc.consultPrice
+                                  ? 'bg-sky-500 text-slate-950 font-black border-sky-400 shadow-sm'
+                                  : 'bg-slate-900 text-slate-400 hover:text-white border-slate-700'
+                              }`}
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Editar</span>
-                            </button>
-                            <button
-                              onClick={() => handleDeleteAccessory(acc.id)}
-                              className="bg-rose-950/40 hover:bg-rose-900 text-rose-300 p-2 rounded-xl h-fit text-[11px] flex items-center gap-1 border border-rose-800/40"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Borrar</span>
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              <span>{acc.consultPrice ? '💬 Consultar: ON' : '💬 Activar Consulta'}</span>
                             </button>
                           </div>
                         </div>
@@ -1866,6 +2201,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         placeholder="Detalle áridos, agua para llenado, conexión eléctrica..."
                       />
                     </div>
+                  </div>
+
+                  {/* Modo Consultar Precio Global */}
+                  <div className="bg-slate-900/90 border border-sky-900/40 p-4 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-sky-400" />
+                        <span className="text-white font-bold block text-xs">Visibilidad de Precios en el Catálogo Público</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="globalConsultPriceCheckbox"
+                          checked={Boolean(companySettings.consultPriceOnly)}
+                          onChange={e => setCompanySettings({ ...companySettings, consultPriceOnly: e.target.checked })}
+                          className="w-4 h-4 text-sky-600 bg-slate-800 border-slate-700 rounded focus:ring-sky-500 cursor-pointer"
+                        />
+                        <label htmlFor="globalConsultPriceCheckbox" className="text-slate-200 font-semibold cursor-pointer select-none text-xs">
+                          Ocultar precios y activar modo "Consultar Precio" por WhatsApp
+                        </label>
+                      </div>
+                    </div>
+                    <p className="text-slate-400 text-[11px]">
+                      Cuando está activado, ningún precio numérico en ARS se muestra al público y todos los botones derivan a una consulta personalizada por WhatsApp.
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-3 pt-2">
@@ -2868,6 +3228,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     ) : null}
                   </div>
                 </div>
+
+                {/* Toggle Consultar Precio para este Modelo */}
+                <div className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800">
+                  <div className="space-y-0.5">
+                    <span className="text-white font-bold block text-xs">💬 Ocultar Precio y Activar 'Consultar Precio'</span>
+                    <span className="text-[10px] text-slate-400">En lugar del monto en ARS, muestra un botón directo de WhatsApp para consultar cotización</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingModel({ ...editingModel, consultPrice: !editingModel.consultPrice })}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      editingModel.consultPrice
+                        ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20'
+                        : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                    }`}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>{editingModel.consultPrice ? 'ACTIVADO' : 'DESACTIVADO'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Sección 7: Foto del Modelo */}
@@ -2988,6 +3368,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </span>
                   ) : null}
                 </div>
+              </div>
+
+              {/* Toggle Consultar Precio para este Accesorio */}
+              <div className="flex items-center justify-between p-2.5 bg-slate-900 rounded-xl border border-slate-800">
+                <div className="space-y-0.5">
+                  <span className="text-white font-bold block text-xs">💬 Activar 'Consultar Precio'</span>
+                  <span className="text-[10px] text-slate-400">Oculta el precio y deriva a WhatsApp</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingAcc({ ...editingAcc, consultPrice: !editingAcc.consultPrice })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    editingAcc.consultPrice
+                      ? 'bg-sky-500 text-slate-950 font-black shadow-md shadow-sky-500/20'
+                      : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'
+                  }`}
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>{editingAcc.consultPrice ? 'ACTIVADO' : 'DESACTIVADO'}</span>
+                </button>
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PoolModel, Accessory, CompanyConfig } from '../types';
-import { Send, CheckCircle2, Shield, Droplets, Ruler, Info, Plus, Sparkles, Phone, X } from 'lucide-react';
+import { Send, CheckCircle2, Shield, Droplets, Ruler, Info, Plus, Sparkles, Phone, X, MessageCircle } from 'lucide-react';
 
 interface CatalogSectionProps {
   models: PoolModel[];
@@ -23,6 +23,14 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
   const [clientNotes, setClientNotes] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
+
+  const isModelConsultPrice = (model: PoolModel) => {
+    return Boolean(config?.consultPriceOnly || model.consultPrice || model.price <= 0);
+  };
+
+  const isAccessoryConsultPrice = (acc: Accessory) => {
+    return Boolean(config?.consultPriceOnly || acc.consultPrice || acc.price <= 0);
+  };
 
   const filteredModels = models.filter(m => {
     if (lineFilter === 'todas') return true;
@@ -48,9 +56,9 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
     let accTotal = 0;
     selectedAccessories.forEach(id => {
       const acc = accessories.find(a => a.id === id);
-      if (acc) accTotal += acc.price;
+      if (acc && !isAccessoryConsultPrice(acc)) accTotal += acc.price;
     });
-    return selectedModel.price + accTotal;
+    return (isModelConsultPrice(selectedModel) ? 0 : selectedModel.price) + accTotal;
   };
 
   const formatCurrency = (val: number) => {
@@ -67,6 +75,7 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
       .map(id => accessories.find(a => a.id === id)?.name)
       .filter(Boolean);
 
+    const isConsult = isModelConsultPrice(selectedModel);
     const total = calculateTotal();
 
     // 1. Save quote in backend server DB
@@ -81,8 +90,8 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
           poolModelCode: selectedModel.code,
           poolModelName: selectedModel.name,
           accessoriesSelected: chosenAccs,
-          totalPrice: total,
-          notes: clientNotes
+          totalPrice: isConsult ? 0 : total,
+          notes: isConsult ? `[CONSULTAR PRECIO] ${clientNotes || ''}` : clientNotes
         })
       });
     } catch (err) {
@@ -95,22 +104,27 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
     msg += `👤 *Cliente:* ${clientName}\n`;
     msg += `📱 *Teléfono:* ${clientPhone}\n`;
     if (clientCity) msg += `📍 *Ubicación:* ${clientCity}\n`;
-    msg += `🏊 *Modelo Seleccionado:* ${selectedModel.name} (${selectedModel.code})\n`;
+    msg += `🏊 *Modelo:* ${selectedModel.name} (${selectedModel.code})\n`;
     msg += `🏷️ *Línea:* ${selectedModel.line === 'mini' ? 'Mini Piscina / Hidromasaje' : selectedModel.line === 'solarium' ? 'Línea Solárium Húmedo' : 'Línea Clásica Rectangular'}\n`;
     msg += `📏 *Medidas:* ${selectedModel.length}m x ${selectedModel.width}m (Prof. ${selectedModel.depth}m)\n`;
     msg += `💧 *Capacidad:* ${selectedModel.capacity.toLocaleString('es-AR')} Litros\n`;
     
     if (chosenAccs.length > 0) {
-      msg += `✨ *Accesorios elegidos:*\n`;
+      msg += `✨ *Accesorios adicionales seleccionados:*\n`;
       chosenAccs.forEach(acc => {
         msg += `  • ${acc}\n`;
       });
     }
 
-    msg += `💰 *Presupuesto Estimado:* ${formatCurrency(total)}\n`;
-    if (clientNotes) msg += `📝 *Observaciones del terreno:* ${clientNotes}\n`;
+    if (isConsult) {
+      msg += `💰 *Precio:* Solicito precio actualizado, opciones de pago y disponibilidad de instalación.\n`;
+    } else {
+      msg += `💰 *Presupuesto Estimado:* ${formatCurrency(total)}\n`;
+    }
+    
+    if (clientNotes) msg += `📝 *Observaciones:* ${clientNotes}\n`;
     msg += `----------------------------------------\n`;
-    msg += `Aguardo confirmación y detalles de instalación. ¡Gracias!`;
+    msg += `Aguardo asesoramiento. ¡Muchas gracias!`;
 
     const waUrl = `https://wa.me/${config.whatsappPhone}?text=${encodeURIComponent(msg)}`;
 
@@ -255,15 +269,24 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
               {/* Price & Action */}
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Valor Modelo Base</span>
-                  <span className="text-lg font-extrabold text-slate-900">{formatCurrency(model.price)}</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                    {isModelConsultPrice(model) ? 'Cotización' : 'Valor Modelo Base'}
+                  </span>
+                  {isModelConsultPrice(model) ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-black text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-200">
+                      <MessageCircle className="w-3.5 h-3.5 text-sky-600" />
+                      Consultar Precio
+                    </span>
+                  ) : (
+                    <span className="text-lg font-extrabold text-slate-900">{formatCurrency(model.price)}</span>
+                  )}
                 </div>
                 <button
                   onClick={() => handleOpenModel(model)}
                   className="bg-sky-600 hover:bg-sky-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1"
                 >
                   <Info className="w-3.5 h-3.5" />
-                  <span>Ver Detalle</span>
+                  <span>{isModelConsultPrice(model) ? 'Consultar' : 'Ver Detalle'}</span>
                 </button>
               </div>
             </div>
@@ -402,7 +425,9 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
                           />
                           <div>
                             <span className="text-slate-800 block font-medium">{acc.name}</span>
-                            <span className="text-slate-500 text-[10px]">{formatCurrency(acc.price)}</span>
+                            <span className="text-slate-500 text-[10px]">
+                              {isAccessoryConsultPrice(acc) ? 'Consultar precio' : formatCurrency(acc.price)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -422,16 +447,24 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
 
               <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div>
-                  <span className="text-slate-400 text-xs block">Presupuesto Estimado Final:</span>
-                  <span className="text-2xl font-black text-emerald-400">{formatCurrency(calculateTotal())}</span>
-                  <span className="text-[10px] text-slate-400 block">Incluye casco + equipos + accesorios seleccionados</span>
+                  <span className="text-slate-400 text-xs block">
+                    {isModelConsultPrice(selectedModel) ? 'Condición Comercial:' : 'Presupuesto Estimado Final:'}
+                  </span>
+                  {isModelConsultPrice(selectedModel) ? (
+                    <span className="text-xl font-black text-sky-400">Precio a Consultar</span>
+                  ) : (
+                    <span className="text-2xl font-black text-emerald-400">{formatCurrency(calculateTotal())}</span>
+                  )}
+                  <span className="text-[10px] text-slate-400 block">
+                    {isModelConsultPrice(selectedModel) ? 'Asesoramiento personalizado inmediato por WhatsApp' : 'Incluye casco + equipos + accesorios seleccionados'}
+                  </span>
                 </div>
                 <button
                   onClick={() => setIsQuoteModalOpen(true)}
                   className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black px-5 py-3 rounded-xl text-sm shadow-lg transition-all flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Solicitar Cotización WhatsApp</span>
+                  <span>{isModelConsultPrice(selectedModel) ? 'Consultar Precio por WhatsApp' : 'Solicitar Cotización WhatsApp'}</span>
                 </button>
               </div>
             </div>
@@ -452,10 +485,12 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
 
             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
               <Phone className="w-5 h-5 text-emerald-600" />
-              <span>Enviar Pedido a WhatsApp</span>
+              <span>{isModelConsultPrice(selectedModel) ? 'Consultar Precio y Disponibilidad' : 'Enviar Pedido a WhatsApp'}</span>
             </h3>
             <p className="text-slate-500 text-xs mt-1">
-              Completá tus datos para que guardemos tu cotización en el servidor y te abra el chat directo de WhatsApp con nuestro equipo comercial.
+              {isModelConsultPrice(selectedModel) 
+                ? 'Completá tus datos para que nuestro equipo comercial te envíe el valor oficial y opciones de pago vía WhatsApp.'
+                : 'Completá tus datos para que guardemos tu cotización en el servidor y te abra el chat directo de WhatsApp con nuestro equipo comercial.'}
             </p>
 
             <form onSubmit={handleSendWhatsAppQuote} className="mt-4 space-y-3">
@@ -511,8 +546,8 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
                   <span>{selectedModel.name}</span>
                 </div>
                 <div className="flex justify-between font-bold text-emerald-700">
-                  <span>Total Estimado:</span>
-                  <span>{formatCurrency(calculateTotal())}</span>
+                  <span>{isModelConsultPrice(selectedModel) ? 'Precio:' : 'Total Estimado:'}</span>
+                  <span>{isModelConsultPrice(selectedModel) ? 'Consultar' : formatCurrency(calculateTotal())}</span>
                 </div>
               </div>
 
@@ -527,11 +562,11 @@ export const CatalogSection: React.FC<CatalogSectionProps> = ({ models, accessor
                     <span>¡Guardado! Abriendo WhatsApp...</span>
                   </>
                 ) : isSending ? (
-                  <span>Procesando pedido...</span>
+                  <span>Procesando...</span>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>Confirmar y Enviar por WhatsApp</span>
+                    <span>{isModelConsultPrice(selectedModel) ? 'Consultar Precio por WhatsApp' : 'Confirmar y Enviar por WhatsApp'}</span>
                   </>
                 )}
               </button>

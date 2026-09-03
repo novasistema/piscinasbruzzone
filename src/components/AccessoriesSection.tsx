@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Accessory, CompanyConfig } from '../types';
-import { Sparkles, ShoppingBag, Send, Tag, Phone, ShieldCheck, Check } from 'lucide-react';
+import { Sparkles, ShoppingBag, Send, Tag, Phone, ShieldCheck, Check, MessageCircle } from 'lucide-react';
 
 interface AccessoriesSectionProps {
   accessories: Accessory[];
@@ -13,6 +13,10 @@ export const AccessoriesSection: React.FC<AccessoriesSectionProps> = ({ accessor
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+
+  const isAccConsultPrice = (acc: Accessory) => {
+    return Boolean(config?.consultPriceOnly || acc.consultPrice || acc.price <= 0);
+  };
 
   const categories = [
     { id: 'todas', label: 'Todos' },
@@ -39,11 +43,17 @@ export const AccessoriesSection: React.FC<AccessoriesSectionProps> = ({ accessor
   };
 
   const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + item.price, 0);
+    return cart.reduce((sum, item) => sum + (isAccConsultPrice(item) ? 0 : item.price), 0);
   };
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val);
+  };
+
+  const handleDirectConsultAccessory = (acc: Accessory) => {
+    const msg = `*CONSULTA DE ACCESORIO - PISCINAS BRUZZONE*\n----------------------------------------\nHola Piscinas Bruzzone! Quisiera consultar el precio, disponibilidad y opciones de entrega del producto: *${acc.name}*.\n\nDescripción: ${acc.description || 'Accesorio para piscina'}\n\n¡Muchas gracias!`;
+    const waUrl = `https://wa.me/${config.whatsappPhone}?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
   };
 
   const handleSendAccessoryOrder = async (e: React.FormEvent) => {
@@ -79,10 +89,15 @@ export const AccessoriesSection: React.FC<AccessoriesSectionProps> = ({ accessor
     msg += `📱 *Teléfono:* ${clientPhone}\n`;
     msg += `🛍️ *Productos Seleccionados:*\n`;
     cart.forEach(item => {
-      msg += `  • ${item.name} (${formatCurrency(item.price)})\n`;
+      const priceText = isAccConsultPrice(item) ? 'Precio a consultar' : formatCurrency(item.price);
+      msg += `  • ${item.name} (${priceText})\n`;
     });
     msg += `----------------------------------------\n`;
-    msg += `💰 *TOTAL PEDIDO:* ${formatCurrency(total)}\n`;
+    if (total > 0) {
+      msg += `💰 *TOTAL ESTIMADO:* ${formatCurrency(total)}\n`;
+    } else {
+      msg += `💰 *PRECIO:* Solicito cotización por los accesorios seleccionados.\n`;
+    }
     msg += `Solicito envío/disponibilidad para retiro. ¡Gracias!`;
 
     const waUrl = `https://wa.me/${config.whatsappPhone}?text=${encodeURIComponent(msg)}`;
@@ -183,32 +198,51 @@ export const AccessoriesSection: React.FC<AccessoriesSectionProps> = ({ accessor
                   <p className="text-slate-500 text-xs mt-1 leading-relaxed">{acc.description}</p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold block">Precio Oficial</span>
-                    <span className="text-lg font-extrabold text-slate-900">{formatCurrency(acc.price)}</span>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                      {isAccConsultPrice(acc) ? 'Condición' : 'Precio Oficial'}
+                    </span>
+                    {isAccConsultPrice(acc) ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-black text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                        <MessageCircle className="w-3.5 h-3.5 text-sky-600" />
+                        Consultar Precio
+                      </span>
+                    ) : (
+                      <span className="text-lg font-extrabold text-slate-900">{formatCurrency(acc.price)}</span>
+                    )}
                   </div>
 
-                  <button
-                    onClick={() => handleAddToCart(acc)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                      inCart
-                        ? 'bg-emerald-500 text-slate-950 font-black'
-                        : 'bg-sky-600 hover:bg-sky-700 text-white'
-                    }`}
-                  >
-                    {inCart ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        <span>Agregado</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        <span>Agregar</span>
-                      </>
-                    )}
-                  </button>
+                  {isAccConsultPrice(acc) ? (
+                    <button
+                      onClick={() => handleDirectConsultAccessory(acc)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Consultar</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleAddToCart(acc)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        inCart
+                          ? 'bg-emerald-500 text-slate-950 font-black'
+                          : 'bg-sky-600 hover:bg-sky-700 text-white'
+                      }`}
+                    >
+                      {inCart ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Agregado</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>Agregar</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

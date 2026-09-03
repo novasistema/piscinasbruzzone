@@ -36,7 +36,8 @@ export const initialCompanyConfig: CompanyConfig = {
     imageUrl: 'https://images.unsplash.com/photo-1572331165267-854da2b10ccc?auto=format&fit=crop&w=800&q=80',
     ctaText: 'Consultar Promoción por WhatsApp',
     ctaAction: 'whatsapp'
-  }
+  },
+  consultPriceOnly: false
 };
 
 export const initialModels: PoolModel[] = [
