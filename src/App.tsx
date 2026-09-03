@@ -335,6 +335,11 @@ export default function App() {
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
         config={config}
+        models={models}
+        accessories={accessories}
+        projects={projects}
+        testimonials={testimonials}
+        maintenances={maintenances}
         onRefreshData={fetchAppData}
       />
     </div>

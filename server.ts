@@ -134,26 +134,36 @@ app.get('/api/models', (req, res) => {
 
 app.post('/api/models', (req, res) => {
   const db = readDb();
-  const newModel = { id: 'mod-' + Date.now(), ...req.body };
-  db.models = [newModel, ...db.models];
+  const newModel = { id: req.body.id || ('mod-' + Date.now()), ...req.body };
+  db.models = [newModel, ...(db.models || [])];
   writeDb(db);
-  res.json({ success: true, model: newModel });
+  res.json({ success: true, model: newModel, models: db.models });
 });
 
 app.put('/api/models/:id', (req, res) => {
   const db = readDb();
   const { id } = req.params;
-  db.models = db.models.map((m: any) => (m.id === id ? { ...m, ...req.body } : m));
+  let found = false;
+  db.models = (db.models || initialModels).map((m: any) => {
+    if (m.id === id || String(m.id).toLowerCase() === String(id).toLowerCase() || (m.code && String(m.code).toLowerCase() === String(id).toLowerCase())) {
+      found = true;
+      return { ...m, ...req.body, id: m.id };
+    }
+    return m;
+  });
+  if (!found) {
+    db.models = [{ ...req.body, id }, ...db.models];
+  }
   writeDb(db);
-  res.json({ success: true });
+  res.json({ success: true, models: db.models });
 });
 
 app.delete('/api/models/:id', (req, res) => {
   const db = readDb();
   const { id } = req.params;
-  db.models = db.models.filter((m: any) => m.id !== id);
+  db.models = (db.models || []).filter((m: any) => m.id !== id && String(m.id).toLowerCase() !== String(id).toLowerCase());
   writeDb(db);
-  res.json({ success: true });
+  res.json({ success: true, models: db.models });
 });
 
 // Mass Price Update API
@@ -162,21 +172,21 @@ app.post('/api/prices/update-mass', (req, res) => {
   const db = readDb();
 
   if (typeof modelPercent === 'number' && modelPercent !== 0) {
-    db.models = db.models.map((m: any) => ({
+    db.models = (db.models || []).map((m: any) => ({
       ...m,
       price: Math.round(m.price * (1 + modelPercent / 100))
     }));
   }
 
   if (typeof accessoryPercent === 'number' && accessoryPercent !== 0) {
-    db.accessories = db.accessories.map((a: any) => ({
+    db.accessories = (db.accessories || []).map((a: any) => ({
       ...a,
       price: Math.round(a.price * (1 + accessoryPercent / 100))
     }));
   }
 
   writeDb(db);
-  res.json({ success: true, modelsCount: db.models.length, accessoriesCount: db.accessories.length });
+  res.json({ success: true, modelsCount: db.models.length, accessoriesCount: db.accessories.length, models: db.models, accessories: db.accessories });
 });
 
 // Accessories API
@@ -187,26 +197,52 @@ app.get('/api/accessories', (req, res) => {
 
 app.post('/api/accessories', (req, res) => {
   const db = readDb();
-  const newAcc = { id: 'acc-' + Date.now(), ...req.body };
-  db.accessories = [newAcc, ...db.accessories];
+  const newAcc = { id: req.body.id || ('acc-' + Date.now()), ...req.body };
+  db.accessories = [newAcc, ...(db.accessories || [])];
   writeDb(db);
-  res.json({ success: true, accessory: newAcc });
+  res.json({ success: true, accessory: newAcc, accessories: db.accessories });
 });
 
 app.put('/api/accessories/:id', (req, res) => {
   const db = readDb();
   const { id } = req.params;
-  db.accessories = db.accessories.map((a: any) => (a.id === id ? { ...a, ...req.body } : a));
+  let found = false;
+  db.accessories = (db.accessories || initialAccessories).map((a: any) => {
+    if (a.id === id || String(a.id).toLowerCase() === String(id).toLowerCase()) {
+      found = true;
+      return { ...a, ...req.body, id: a.id };
+    }
+    return a;
+  });
+  if (!found) {
+    db.accessories = [{ ...req.body, id }, ...db.accessories];
+  }
   writeDb(db);
-  res.json({ success: true });
+  res.json({ success: true, accessories: db.accessories });
 });
 
 app.delete('/api/accessories/:id', (req, res) => {
   const db = readDb();
   const { id } = req.params;
-  db.accessories = db.accessories.filter((a: any) => a.id !== id);
+  db.accessories = (db.accessories || []).filter((a: any) => a.id !== id && String(a.id).toLowerCase() !== String(id).toLowerCase());
   writeDb(db);
-  res.json({ success: true });
+  res.json({ success: true, accessories: db.accessories });
+});
+
+// Full state synchronization API
+app.post('/api/sync-all', (req, res) => {
+  const db = readDb();
+  const { models, accessories, config, projects, testimonials, quotes, maintenances, masterUsers } = req.body;
+  if (Array.isArray(models)) db.models = models;
+  if (Array.isArray(accessories)) db.accessories = accessories;
+  if (config) db.config = { ...db.config, ...config };
+  if (Array.isArray(projects)) db.projects = projects;
+  if (Array.isArray(testimonials)) db.testimonials = testimonials;
+  if (Array.isArray(quotes)) db.quotes = quotes;
+  if (Array.isArray(maintenances)) db.maintenances = maintenances;
+  if (Array.isArray(masterUsers)) db.masterUsers = masterUsers;
+  writeDb(db);
+  res.json({ success: true, updatedAt: db.updatedAt });
 });
 
 // Quotes / Orders API

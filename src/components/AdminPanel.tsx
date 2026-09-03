@@ -12,15 +12,36 @@ interface AdminPanelProps {
   isOpen: boolean;
   onClose: () => void;
   config: CompanyConfig;
+  models?: PoolModel[];
+  accessories?: Accessory[];
+  projects?: ProjectPhoto[];
+  testimonials?: Testimonial[];
+  maintenances?: MaintenanceVisit[];
   onRefreshData: () => void;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config, onRefreshData }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({
+  isOpen,
+  onClose,
+  config,
+  models: propsModels,
+  accessories: propsAccessories,
+  projects: propsProjects,
+  testimonials: propsTestimonials,
+  maintenances: propsMaintenances,
+  onRefreshData
+}) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginPassword, setLoginPassword] = useState('');
   const [loginUsername, setLoginUsername] = useState('admin');
   const [loginError, setLoginError] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 4000);
+  };
 
   const [activeTab, setActiveTab] = useState<'quotes' | 'quote_builder' | 'maintenances' | 'models' | 'accessories' | 'projects' | 'testimonials' | 'settings' | 'master_users' | 'popup' | 'security'>('quotes');
   const [showPopupPreview, setShowPopupPreview] = useState(false);
@@ -153,6 +174,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
       if (backupInputRef.current) backupInputRef.current.value = '';
     }
   };
+
+  useEffect(() => {
+    if (propsModels && propsModels.length > 0) {
+      setModels(propsModels);
+    }
+  }, [propsModels]);
+
+  useEffect(() => {
+    if (propsAccessories && propsAccessories.length > 0) {
+      setAccessories(propsAccessories);
+    }
+  }, [propsAccessories]);
+
+  useEffect(() => {
+    if (config) {
+      setCompanySettings(config);
+    }
+  }, [config]);
+
+  useEffect(() => {
+    if (propsProjects && propsProjects.length > 0) {
+      setProjects(propsProjects);
+    }
+  }, [propsProjects]);
+
+  useEffect(() => {
+    if (propsTestimonials && propsTestimonials.length > 0) {
+      setTestimonials(propsTestimonials);
+    }
+  }, [propsTestimonials]);
+
+  useEffect(() => {
+    if (propsMaintenances && propsMaintenances.length > 0) {
+      setMaintenances(propsMaintenances);
+    }
+  }, [propsMaintenances]);
 
   useEffect(() => {
     if (isOpen && isAuthenticated) {
@@ -514,7 +571,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
 
   const handleMassPriceUpdate = async () => {
     try {
-      await fetch('/api/prices/update-mass', {
+      const res = await fetch('/api/prices/update-mass', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -522,9 +579,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
           accessoryPercent: Number(massAccPercent)
         })
       });
+      const data = await res.json();
+      const updatedModels = (data.models && data.models.length > 0)
+        ? data.models
+        : models.map(m => ({ ...m, price: Math.round(m.price * (1 + Number(massModelPercent) / 100)) }));
+      const updatedAccs = (data.accessories && data.accessories.length > 0)
+        ? data.accessories
+        : accessories.map(a => ({ ...a, price: Math.round(a.price * (1 + Number(massAccPercent) / 100)) }));
+
+      setModels(updatedModels);
+      setAccessories(updatedAccs);
+      try {
+        localStorage.setItem('bruone_models', JSON.stringify(updatedModels));
+        localStorage.setItem('bruone_accessories', JSON.stringify(updatedAccs));
+      } catch (e) {}
+
+      await syncDataToCloud({ models: updatedModels, accessories: updatedAccs });
+      onRefreshData();
       setIsMassPriceOpen(false);
-      loadAllAdminData();
-      alert('¡Precios actualizados masivamente con éxito!');
+      showToast('¡Precios actualizados masivamente con éxito en Servidor y Nube!');
     } catch (err) {
       alert('Error actualizando precios');
     }
@@ -542,6 +615,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
         masterUsers
       });
       if (ok) {
+        onRefreshData();
+        showToast('¡Catálogo, fotos 3D y precios sincronizados con la Nube!');
         alert('¡Catálogo, fotos 3D y precios sincronizados exitosamente con la Nube! Ahora se verán exactamente iguales en cualquier dispositivo, móvil e incógnito.');
       } else {
         alert('Hubo un inconveniente al conectar con la Nube.');
@@ -563,111 +638,136 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
       length: Number(editingModel.length) || 5.0,
       width: Number(editingModel.width) || 3.0,
       depth: Number(editingModel.depth) || 1.4,
-      capacity: Number(editingModel.capacity) || Math.round((Number(editingModel.length) || 5) * (Number(editingModel.width) || 3) * (Number(editingModel.depth) || 1.4) * 850),
-      solariumWidth: editingModel.solariumWidth ? Number(editingModel.solariumWidth) : undefined,
-      costPrice: Number(editingModel.costPrice) || 3000000,
-      profitMargin: Number(editingModel.profitMargin) || 40,
-      price: Number(editingModel.price) || 4200000,
+      capacity: Number(editingModel.capacity) || 0,
+      solariumWidth: editingModel.solariumWidth !== undefined && editingModel.solariumWidth !== null && editingModel.solariumWidth !== '' ? Number(editingModel.solariumWidth) : undefined,
+      costPrice: Number(editingModel.costPrice) || 0,
+      profitMargin: Number(editingModel.profitMargin) || 0,
+      price: Number(editingModel.price) || 0,
       imageUrl: editingModel.imageUrl || 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=800&q=80',
-      description: editingModel.description || 'Piscina de fibra de vidrio de alta resistencia con protección UV y acabado suave.',
-      includes: Array.isArray(editingModel.includes) && editingModel.includes.length > 0
-        ? editingModel.includes
-        : ['Equipo de filtrado VULCANO completo (Bomba + Filtro)', 'Skimmer y retornos orientables', 'Losetas perimetrales atérmicas y antideslizantes'],
-      clientMaterials: Array.isArray(editingModel.clientMaterials) && editingModel.clientMaterials.length > 0
-        ? editingModel.clientMaterials
-        : ['10 bolsas de cemento', '2 bolsas de hercal', '1.5 m³ de arena gruesa', 'Agua para llenado'],
+      description: editingModel.description !== undefined ? editingModel.description : '',
+      includes: Array.isArray(editingModel.includes) ? editingModel.includes : [],
+      clientMaterials: Array.isArray(editingModel.clientMaterials) ? editingModel.clientMaterials : [],
       isPopular: Boolean(editingModel.isPopular),
-      warrantyYears: editingModel.warrantyYears ? Number(editingModel.warrantyYears) : 5
+      warrantyYears: Number(editingModel.warrantyYears) || 5
     };
 
-    let updatedModels = [...models];
+    let updatedModels: PoolModel[];
     if (editingModel.id) {
-      updatedModels = updatedModels.map(m => m.id === cleanModel.id ? cleanModel : m);
-      try {
+      updatedModels = models.map(m => (m.id === cleanModel.id || String(m.id).toLowerCase() === String(cleanModel.id).toLowerCase() || (m.code && String(m.code).toLowerCase() === String(cleanModel.code).toLowerCase())) ? cleanModel : m);
+      if (!updatedModels.some(m => m.id === cleanModel.id)) {
+        updatedModels = [cleanModel, ...updatedModels];
+      }
+    } else {
+      updatedModels = [cleanModel, ...models];
+    }
+
+    setModels(updatedModels);
+    try { localStorage.setItem('bruone_models', JSON.stringify(updatedModels)); } catch (e) {}
+
+    // Persist to REST server
+    try {
+      if (editingModel.id) {
         await fetch(`/api/models/${cleanModel.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cleanModel)
         });
-      } catch (err) { console.error('API update error:', err); }
-    } else {
-      updatedModels = [cleanModel, ...updatedModels];
-      try {
+      } else {
         await fetch('/api/models', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(cleanModel)
         });
-      } catch (err) { console.error('API create error:', err); }
+      }
+    } catch (err) {
+      console.error('API model save error:', err);
     }
 
-    setModels(updatedModels);
-    try { localStorage.setItem('bruone_models', JSON.stringify(updatedModels)); } catch (e) {}
-    syncDataToCloud({ models: updatedModels });
+    // Persist to Cloud Firestore and notify parent
+    await syncDataToCloud({ models: updatedModels });
+    onRefreshData();
+
     setIsAddingModel(false);
     setEditingModel(null);
     setNewIncludeInput('');
     setNewMaterialInput('');
-    loadAllAdminData();
+    showToast(`✅ Modelo "${cleanModel.name}" guardado exitosamente`);
   };
 
   const handleSaveAccessory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingAcc) return;
 
-    let updatedAccs = [...accessories];
+    const cleanAcc: Accessory = {
+      id: editingAcc.id || ('acc-' + Date.now()),
+      name: editingAcc.name || 'Nuevo Accesorio',
+      category: editingAcc.category || 'luces',
+      costPrice: Number(editingAcc.costPrice) || 0,
+      profitMargin: Number(editingAcc.profitMargin) || 0,
+      price: Number(editingAcc.price) || 0,
+      description: editingAcc.description !== undefined ? editingAcc.description : '',
+      imageUrl: editingAcc.imageUrl || 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80',
+      isSeasonal: editingAcc.isSeasonal ?? true
+    };
+
+    let updatedAccs: Accessory[];
     if (editingAcc.id) {
-      updatedAccs = updatedAccs.map(a => a.id === editingAcc.id ? { ...a, ...editingAcc } as Accessory : a);
-      try {
-        await fetch(`/api/accessories/${editingAcc.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editingAcc)
-        });
-      } catch (err) { console.error('API update error:', err); }
+      updatedAccs = accessories.map(a => (a.id === cleanAcc.id || String(a.id).toLowerCase() === String(cleanAcc.id).toLowerCase()) ? cleanAcc : a);
+      if (!updatedAccs.some(a => a.id === cleanAcc.id)) {
+        updatedAccs = [cleanAcc, ...updatedAccs];
+      }
     } else {
-      const newA: Accessory = {
-        id: 'acc-' + Date.now(),
-        name: editingAcc.name || 'Nuevo Accesorio',
-        category: editingAcc.category || 'luces',
-        costPrice: Number(editingAcc.costPrice) || 100000,
-        profitMargin: Number(editingAcc.profitMargin) || 40,
-        price: Number(editingAcc.price) || 140000,
-        description: editingAcc.description || 'Accesorio para piscina',
-        imageUrl: editingAcc.imageUrl || 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80',
-        isSeasonal: editingAcc.isSeasonal ?? true
-      };
-      updatedAccs = [newA, ...updatedAccs];
-      try {
-        await fetch('/api/accessories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newA)
-        });
-      } catch (err) { console.error('API create error:', err); }
+      updatedAccs = [cleanAcc, ...accessories];
     }
 
     setAccessories(updatedAccs);
     try { localStorage.setItem('bruone_accessories', JSON.stringify(updatedAccs)); } catch (e) {}
-    syncDataToCloud({ accessories: updatedAccs });
+
+    // Persist to REST server
+    try {
+      if (editingAcc.id) {
+        await fetch(`/api/accessories/${cleanAcc.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cleanAcc)
+        });
+      } else {
+        await fetch('/api/accessories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cleanAcc)
+        });
+      }
+    } catch (err) {
+      console.error('API accessory save error:', err);
+    }
+
+    // Persist to Cloud Firestore and notify parent
+    await syncDataToCloud({ accessories: updatedAccs });
+    onRefreshData();
+
     setIsAddingAcc(false);
     setEditingAcc(null);
-    loadAllAdminData();
+    showToast(`✅ Producto "${cleanAcc.name}" guardado exitosamente`);
   };
 
   const handleSaveCompanyConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       localStorage.setItem('bruone_config', JSON.stringify(companySettings));
-      syncDataToCloud({ config: companySettings });
       await fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(companySettings)
       });
-    } catch (err) { console.error(err); }
-    loadAllAdminData();
-    alert('¡Ajustes de empresa guardados con éxito en la Nube y en el Servidor!');
+      await syncDataToCloud({ config: companySettings });
+      onRefreshData();
+      showToast('¡Ajustes de empresa guardados con éxito!');
+      alert('¡Ajustes de empresa guardados con éxito en la Nube y en el Servidor!');
+    } catch (err) {
+      console.error(err);
+      alert('Error guardando configuración');
+    }
   };
 
   const handleSaveProject = async (e: React.FormEvent) => {
@@ -676,7 +776,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
     const updated = [newP, ...projects];
     setProjects(updated);
     try { localStorage.setItem('bruone_projects', JSON.stringify(updated)); } catch (e) {}
-    syncDataToCloud({ projects: updated });
     try {
       await fetch('/api/projects', {
         method: 'POST',
@@ -684,9 +783,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
         body: JSON.stringify(newProject)
       });
     } catch (err) {}
+    await syncDataToCloud({ projects: updated });
+    onRefreshData();
     setIsAddingProject(false);
     setNewProject({ title: '', location: '', poolModel: 'S5000 Solarium', imageUrl: '', description: '' });
-    loadAllAdminData();
+    showToast('¡Proyecto agregado a la galería!');
   };
 
   const handleSaveTestimonial = async (e: React.FormEvent) => {
@@ -695,7 +796,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
     const updated = [newT, ...testimonials];
     setTestimonials(updated);
     try { localStorage.setItem('bruone_testimonials', JSON.stringify(updated)); } catch (e) {}
-    syncDataToCloud({ testimonials: updated });
     try {
       await fetch('/api/testimonials', {
         method: 'POST',
@@ -703,51 +803,61 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
         body: JSON.stringify(newTestimonial)
       });
     } catch (err) {}
+    await syncDataToCloud({ testimonials: updated });
+    onRefreshData();
     setIsAddingTestimonial(false);
     setNewTestimonial({ clientName: '', location: '', poolModel: 'C6000 Clásica', rating: 5, comment: '' });
-    loadAllAdminData();
+    showToast('¡Testimonio agregado!');
   };
 
   const handleDeleteModel = async (id: string) => {
     if (!confirm('¿Eliminar este modelo de piscina del catálogo?')) return;
-    const updatedModels = models.filter(m => m.id !== id);
+    const updatedModels = models.filter(m => m.id !== id && String(m.id).toLowerCase() !== String(id).toLowerCase());
     setModels(updatedModels);
     try { localStorage.setItem('bruone_models', JSON.stringify(updatedModels)); } catch (e) {}
-    syncDataToCloud({ models: updatedModels });
     try {
       await fetch(`/api/models/${id}`, { method: 'DELETE' });
     } catch (err) {}
-    loadAllAdminData();
+    await syncDataToCloud({ models: updatedModels });
+    onRefreshData();
+    showToast('Modelo eliminado del catálogo');
   };
 
   const handleDeleteAccessory = async (id: string) => {
     if (!confirm('¿Eliminar este accesorio?')) return;
-    const updatedAccs = accessories.filter(a => a.id !== id);
+    const updatedAccs = accessories.filter(a => a.id !== id && String(a.id).toLowerCase() !== String(id).toLowerCase());
     setAccessories(updatedAccs);
     try { localStorage.setItem('bruone_accessories', JSON.stringify(updatedAccs)); } catch (e) {}
-    syncDataToCloud({ accessories: updatedAccs });
     try {
       await fetch(`/api/accessories/${id}`, { method: 'DELETE' });
     } catch (err) {}
-    loadAllAdminData();
+    await syncDataToCloud({ accessories: updatedAccs });
+    onRefreshData();
+    showToast('Accesorio eliminado');
   };
 
   const handleDeleteProject = async (id: string) => {
     if (!confirm('¿Eliminar esta foto de obra de la galería?')) return;
     const updatedProjects = projects.filter(p => p.id !== id);
     setProjects(updatedProjects);
-    syncDataToCloud({ projects: updatedProjects });
-    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-    loadAllAdminData();
+    try { localStorage.setItem('bruone_projects', JSON.stringify(updatedProjects)); } catch (e) {}
+    try {
+      await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    } catch (err) {}
+    await syncDataToCloud({ projects: updatedProjects });
+    onRefreshData();
   };
 
   const handleDeleteTestimonial = async (id: string) => {
     if (!confirm('¿Eliminar este testimonio?')) return;
     const updatedTestimonials = testimonials.filter(t => t.id !== id);
     setTestimonials(updatedTestimonials);
-    syncDataToCloud({ testimonials: updatedTestimonials });
-    await fetch(`/api/testimonials/${id}`, { method: 'DELETE' });
-    loadAllAdminData();
+    try { localStorage.setItem('bruone_testimonials', JSON.stringify(updatedTestimonials)); } catch (e) {}
+    try {
+      await fetch(`/api/testimonials/${id}`, { method: 'DELETE' });
+    } catch (err) {}
+    await syncDataToCloud({ testimonials: updatedTestimonials });
+    onRefreshData();
   };
 
   // Calculation handlers for Pool Models
@@ -1090,6 +1200,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose, config,
 
             {/* Content Area */}
             <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6">
+              {toastMsg && (
+                <div className="bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs sm:text-sm px-4 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-950/40 animate-fadeIn">
+                  <div className="flex items-center gap-2 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span>{toastMsg}</span>
+                  </div>
+                  <button onClick={() => setToastMsg(null)} className="text-emerald-400 hover:text-white p-1">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
               {/* TAB 0: PRESUPUESTADOR DE VENTAS / COTIZADOR */}
               {activeTab === 'quote_builder' && (
                 <AdminQuoteBuilder
